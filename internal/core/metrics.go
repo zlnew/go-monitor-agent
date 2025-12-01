@@ -11,19 +11,32 @@ type CPUMetric struct {
 }
 
 type CPUSpec struct {
-	Vendor    string `json:"vendor"`
-	ModelName string `json:"model_name"`
-	Cores     int    `json:"cores"`
-	Threads   int    `json:"threads"`
+	Vendor   string `json:"vendor"`
+	Model    string `json:"model"`
+	Cores    int    `json:"cores"`
+	Threads  int    `json:"threads"`
+	Arch     string `json:"arch"`
+	BaseFreq int    `json:"base_freq"`
+	MaxFreq  int    `json:"max_freq"`
 }
 
 type MemoryMetric struct {
-	MemTotal     float64 `json:"mem_total"`
-	MemAvailable float64 `json:"mem_available"`
-	MemUsed      float64 `json:"mem_used"`
-	SwapTotal    float64 `json:"swap_total"`
-	SwapFree     float64 `json:"swap_free"`
-	SwapUsed     float64 `json:"swap_used"`
+	Specs        []MemorySpec `json:"specs"`
+	MemTotal     float64      `json:"mem_total"`
+	MemAvailable float64      `json:"mem_available"`
+	MemUsed      float64      `json:"mem_used"`
+	SwapTotal    float64      `json:"swap_total"`
+	SwapFree     float64      `json:"swap_free"`
+	SwapUsed     float64      `json:"swap_used"`
+}
+
+type MemorySpec struct {
+	Size         string `json:"size"`
+	Type         string `json:"type"`
+	Speed        string `json:"speed"`
+	Manufacturer string `json:"manufacturer"`
+	PartNumber   string `json:"part_number"`
+	FormFactor   string `json:"form_factor"`
 }
 
 type DiskMetric struct {
