@@ -11,3 +11,4 @@ type Collector struct {
 }
 
 type CPUMetric = core.CPUMetric
+type CPUSpec = core.CPUSpec

@@ -34,6 +34,8 @@ func (r *Registry) Update(name string, value any) {
 		r.snapshot.CPU = value.(CPUMetric)
 	case "memory":
 		r.snapshot.Memory = value.(MemoryMetric)
+	case "disk":
+		r.snapshot.Disk = value.(DiskMetric)
 	}
 	r.mu.Unlock()
 }
