@@ -13,18 +13,15 @@ func (c *Collector) Collect(ctx context.Context) (any, error) {
 		return DiskMetric{}, err
 	}
 
-	total := c.getTotal()
-	free := c.getFree()
-	used := c.getUsed()
-	temp, err := getTemp()
-	if err != nil {
-		return DiskMetric{}, err
-	}
+	totalGB := c.getTotalGB()
+	freeGB := c.getFreeGB()
+	usedGB := c.getUsedGB()
+	temperature := getTemperature()
 
-	return DiskMetric{
-		Total: total,
-		Free:  free,
-		Used:  used,
-		Temp:  temp,
-	}, nil
+	return []DiskMetric{{
+		TotalGB:     totalGB,
+		FreeGB:      freeGB,
+		UsedGB:      usedGB,
+		Temperature: temperature,
+	}}, nil
 }

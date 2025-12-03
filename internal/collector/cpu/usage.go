@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-func getUsage() (float64, []float64, error) {
+func getUsage() (float64, []float64) {
 	data, err := os.ReadFile("/proc/stat")
 	if err != nil {
-		return 0, nil, err
+		return 0, nil
 	}
 
 	lines := strings.Split(string(data), "\n")
@@ -27,7 +27,7 @@ func getUsage() (float64, []float64, error) {
 		}
 	}
 
-	return totalUsage, perCore, nil
+	return totalUsage, perCore
 }
 
 func parseCPUStat(line string) (float64, error) {

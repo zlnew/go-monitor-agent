@@ -1,15 +1,16 @@
 # go-monitor-agent
 
-Lightweight Go daemon that scrapes local CPU, GPU, memory, disk, and system stats from `/proc` and `/sys` and exposes a JSON snapshot at `/metrics`.
+Lightweight Linux metrics agent that scrapes `/proc` and `/sys` once per second and exposes a JSON snapshot at `/metrics`.
 
 ## Requirements
 
 - Go 1.25.4+.
 - Linux host with `/proc` and `/sys` available.
-- Optional tools/sensors:
-  - `dmidecode` for DIMM specs (may need root).
-  - `lspci` for GPU vendor/model detection.
-  - Readable hwmon/RAPL/DRM entries for temps, power, and GPU busy percent; some platforms need extra capabilities.
+- Optional kernel interfaces/sensors:
+  - RAPL or hwmon power/temperature files for CPU and GPU.
+  - `/sys/class/drm/*/gpu_busy_percent` and `mem_info_vram_*` for GPU utilization and VRAM.
+  - NVMe hwmon temperature for disk temperature.
+- Missing files are tolerated; collectors will emit zero values instead of failing.
 
 ## Run, build, test
 
@@ -21,134 +22,71 @@ Lightweight Go daemon that scrapes local CPU, GPU, memory, disk, and system stat
 
 ## Metrics
 
-- Collectors refresh every second; `/metrics` always returns the latest snapshot.
-- Each collector degrades gracefully—missing or unreadable inputs yield zeros rather than crashing the agent.
-- Collected fields:
-  - CPU: usage and per-core %, frequency (MHz), power (W) from RAPL/hwmon, temp (C), and spec from `/proc/cpuinfo`/cpufreq.
-  - GPU: busy percent from `/sys/class/drm`, VRAM total/used (MiB), temp/power from hwmon, and spec via `lspci`.
-  - Memory: totals/available/used (GiB, binary), swap (GiB, binary), and DIMM specs from `dmidecode`.
-  - Disk: total/free/used (GB, decimal) from the root filesystem and NVMe temp (C) when available.
-  - Network: upload/download rates (Mbps, aggregated bits/s) from `/proc/net/dev` for non-loopback interfaces.
-  - System: hostname, OS pretty name, kernel version, uptime seconds.
-  - Metadata: per-field units so consumers don’t have to guess (percent, MHz, MiB/GiB, GB, Mbps, seconds, etc.).
+Collectors refresh every second and degrade gracefully when inputs are unreadable.
+
+- CPU: usage and per-core usage percent (averaged since boot from `/proc/stat`), temperature via hwmon CPU sensors, current frequency (MHz) from cpufreq, and `power_watt` from RAPL or hwmon when available.
+- GPU: first detected card; usage from `/sys/class/drm/*/gpu_busy_percent`, VRAM total/used in GB from `mem_info_vram_*`, temperature/power from hwmon GPU nodes; returned as a slice even if there is only one GPU.
+- Memory: total, available, used, and swap total/free/used in GiB from `/proc/meminfo`.
+- Disk: root filesystem total/free/used in decimal GB from `statfs` and NVMe temperature from hwmon if present.
+- Network: aggregate of non-loopback interfaces from `/proc/net/dev` with cumulative `rx_bytes`/`tx_bytes` and Mbps rates computed between samples (first sample reports `0` speeds).
+- Uptime: `uptime_seconds` from `/proc/uptime`.
 
 ### Endpoint
 
-- `GET /metrics` returns JSON like:
-  ```json
-  {
-    "cpu": {
-      "spec": {
-        "vendor": "GenuineIntel",
-        "model": "11th Gen Intel(R) Core(TM) i7",
-        "cores": 8,
-        "threads": 16,
-        "arch": "amd64",
-        "base_freq": 1200,
-        "max_freq": 4800
-      },
-      "usage": 12.5,
-      "per_core": [8.2, 14.1, 13.3, 9.9],
-      "watt": 7.8,
-      "temp": 55.0,
-      "frequency": 2200.0
-    },
-    "gpu": {
-      "spec": {
-        "vendor": "NVIDIA",
-        "model": "NVIDIA Corporation GA104 [GeForce RTX 3070 Ti]"
-      },
+`GET /metrics` returns the latest snapshot:
+
+```json
+{
+  "cpu": {
+    "usage": 12.5,
+    "per_core": [8.2, 14.1, 13.3, 9.9],
+    "temperature": 55.0,
+    "frequency": 2200.0,
+    "power_watt": 7.8
+  },
+  "gpu": [
+    {
+      "id": 0,
+      "vendor": "AMD",
+      "model": "RX 6600",
+      "temperature": 48.3,
       "usage": 15.7,
-      "vram_total": 8192,
-      "vram_used": 2100,
-      "temp": 48.3,
-      "watt": 65.2
-    },
-    "memory": {
-      "specs": [
-        {
-          "size": "16 GB",
-          "type": "DDR4",
-          "speed": "3200 MT/s",
-          "manufacturer": "Micron",
-          "part_number": "ABC123",
-          "form_factor": "SODIMM"
-        }
-      ],
-      "mem_total": 15.8,
-      "mem_available": 9.4,
-      "mem_used": 6.4,
-      "swap_total": 2.0,
-      "swap_free": 2.0,
-      "swap_used": 0.0
-    },
-    "disk": {
-      "total": 476.3,
-      "free": 302.1,
-      "used": 174.2,
-      "temp": 41.5
-    },
-    "network": {
-      "upload": 1.2,
-      "download": 8.5
-    },
-    "system": {
-      "hostname": "monitor-host",
-      "os": "Ubuntu 22.04.4 LTS",
-      "kernel": "6.5.0-45-generic",
-      "uptime": 12345
-    },
-    "metadata": {
-      "cpu": {
-        "usage": "percent",
-        "per_core": "percent",
-        "watt": "watt",
-        "temp": "celsius",
-        "frequency": "MHz"
-      },
-      "gpu": {
-        "usage": "percent",
-        "vram_total": "MiB",
-        "vram_used": "MiB",
-        "temp": "celsius",
-        "watt": "watt"
-      },
-      "memory": {
-        "mem_total": "GiB",
-        "mem_available": "GiB",
-        "mem_used": "GiB",
-        "swap_total": "GiB",
-        "swap_free": "GiB",
-        "swap_used": "GiB"
-      },
-      "disk": {
-        "total": "GB",
-        "free": "GB",
-        "used": "GB",
-        "temp": "celsius"
-      },
-      "network": {
-        "upload": "Mbps",
-        "download": "Mbps"
-      },
-      "system": {
-        "uptime": "seconds"
-      }
+      "vram_total_gb": 8.0,
+      "vram_used_gb": 2.1,
+      "vram_usage_percent": 0,
+      "power_watt": 65.2,
+      "fan_speed_percent": 0
     }
-  }
-  ```
-
-## Project layout
-
-- `cmd/agent`: Entrypoint wiring config/logger and starting the agent.
-- `internal/agent`: Builds the registry, registers CPU/GPU/memory/disk/network/system collectors, and starts HTTP.
-- `internal/core`: Metric types, registry, and 1s scheduler that refreshes snapshots.
-- `internal/collector/*`: Source-specific collectors for CPU, GPU, memory, disk, network throughput, and system metadata.
-- `internal/transport/http`: Exposes `/metrics`.
-- `internal/infra`: Config loader (`HTTP_ADDR`, `.env`) and logger interface/implementation.
-- `pkg`: Small shared helpers.
-- `bin/`: Build output; avoid committing binaries unless intentional.
+  ],
+  "memory": {
+    "total_gb": 15.8,
+    "used_gb": 6.4,
+    "available_gb": 9.4,
+    "swap_total_gb": 2.0,
+    "swap_free_gb": 2.0,
+    "swap_used_gb": 0.0
+  },
+  "disk": [
+    {
+      "name": "nvme",
+      "total_gb": 476.3,
+      "used_gb": 174.2,
+      "free_gb": 302.1,
+      "percent": 56,
+      "temperature": 41.5
+    }
+  ],
+  "network": {
+    "rx_bytes": 123456789,
+    "tx_bytes": 987654321,
+    "rx_speed": 1.2,
+    "tx_speed": 8.5
+  },
+  "uptime_seconds": 12345
+}
+```
 
 ## Notes
 
-- The HTTP server runs until context cancellation; the scheduler stops when the agent shuts down.
+- The HTTP server runs until process exit; the scheduler stops when context is canceled.
+- Build artifacts land in `bin/`; avoid committing binaries unless intentional.

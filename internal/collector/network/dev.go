@@ -18,7 +18,6 @@ func readTotals() (uint64, uint64, error) {
 	var txTotal uint64
 
 	scanner := bufio.NewScanner(f)
-	// skip headers (first two lines)
 	for i := 0; i < 2 && scanner.Scan(); i++ {
 	}
 

@@ -2,6 +2,7 @@ package cpu
 
 import (
 	"time"
+
 	"zlnew/monitor-agent/internal/core"
 )
 
@@ -11,4 +12,3 @@ type Collector struct {
 }
 
 type CPUMetric = core.CPUMetric
-type CPUSpec = core.CPUSpec

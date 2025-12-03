@@ -9,7 +9,7 @@ import (
 	"zlnew/monitor-agent/pkg"
 )
 
-func getTemp() (float64, error) {
+func getTemperature() float64 {
 	matches, _ := filepath.Glob("/sys/class/hwmon/hwmon*/temp*_input")
 	targets := []string{
 		"coretemp",
@@ -37,9 +37,9 @@ func getTemp() (float64, error) {
 		b, err := os.ReadFile(f)
 		if err == nil {
 			v, _ := strconv.ParseFloat(strings.TrimSpace(string(b)), 64)
-			return v / 1e3, nil
+			return v / 1e3
 		}
 	}
 
-	return 0, nil
+	return 0
 }

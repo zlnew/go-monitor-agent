@@ -10,14 +10,14 @@ import (
 	"zlnew/monitor-agent/pkg"
 )
 
-func (c *Collector) getWatt() (float64, error) {
+func (c *Collector) getPowerWatt() float64 {
 	if watt, err := c.getRAPL(); err == nil && watt > 0 {
-		return watt, nil
+		return watt
 	}
 	if watt, err := getHwmon(); err == nil && watt > 0 {
-		return watt, nil
+		return watt
 	}
-	return 0, nil
+	return 0
 }
 
 func (c *Collector) getRAPL() (float64, error) {

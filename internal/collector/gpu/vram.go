@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func getVramTotal() float64 {
+func getVramTotalGB() float64 {
 	matches, _ := filepath.Glob("/sys/class/drm/card*/device/mem_info_vram_total")
 
 	for _, p := range matches {
@@ -18,14 +18,14 @@ func getVramTotal() float64 {
 
 		v, err := strconv.ParseFloat(strings.TrimSpace(string(b)), 64)
 		if err == nil {
-			return v / 1024 / 1024
+			return v / 1024 / 1024 / 1024
 		}
 	}
 
 	return 0
 }
 
-func getVramUsed() float64 {
+func getVramUsedGB() float64 {
 	matches, _ := filepath.Glob("/sys/class/drm/card*/device/mem_info_vram_used")
 
 	for _, p := range matches {
@@ -36,7 +36,7 @@ func getVramUsed() float64 {
 
 		v, err := strconv.ParseFloat(strings.TrimSpace(string(b)), 64)
 		if err == nil {
-			return v / 1024 / 1024
+			return v / 1024 / 1024 / 1024
 		}
 	}
 

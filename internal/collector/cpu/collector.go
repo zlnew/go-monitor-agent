@@ -10,18 +10,16 @@ func NewCollector() *Collector {
 }
 
 func (c *Collector) Collect(ctx context.Context) (any, error) {
-	spec, _ := getSpec()
-	usage, perCore, _ := getUsage()
-	watt, _ := c.getWatt()
-	temp, _ := getTemp()
-	freq, _ := getFreq()
+	usage, perCore := getUsage()
+	temperature := getTemperature()
+	frequency := getFrequency()
+	powerWatt := c.getPowerWatt()
 
 	return CPUMetric{
-		Spec:      spec,
-		Usage:     usage,
-		PerCore:   perCore,
-		Watt:      watt,
-		Temp:      temp,
-		Frequency: freq,
+		Usage:       usage,
+		PerCore:     perCore,
+		Temperature: temperature,
+		Frequency:   frequency,
+		PowerWatt:   powerWatt,
 	}, nil
 }

@@ -9,7 +9,7 @@ import (
 	"zlnew/monitor-agent/pkg"
 )
 
-func getPower() (float64, error) {
+func getPowerWatt() float64 {
 	matches, _ := filepath.Glob("/sys/class/hwmon/hwmon*/power*_input")
 	targets := []string{
 		"nvidia",
@@ -43,9 +43,9 @@ func getPower() (float64, error) {
 		b, err := os.ReadFile(f)
 		if err == nil {
 			v, _ := strconv.ParseFloat(strings.TrimSpace(string(b)), 64)
-			return v / 1e6, nil
+			return v / 1e6
 		}
 	}
 
-	return 0, nil
+	return 0
 }

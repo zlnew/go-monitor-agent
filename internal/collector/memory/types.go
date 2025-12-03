@@ -10,4 +10,3 @@ type Collector struct {
 }
 
 type MemoryMetric = core.MemoryMetric
-type MemorySpec = core.MemorySpec

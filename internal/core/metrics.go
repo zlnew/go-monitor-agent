@@ -2,82 +2,56 @@
 package core
 
 type CPUMetric struct {
-	Spec      CPUSpec   `json:"spec"`
-	Usage     float64   `json:"usage"`
-	PerCore   []float64 `json:"per_core"`
-	Watt      float64   `json:"watt"`
-	Temp      float64   `json:"temp"`
-	Frequency float64   `json:"frequency"`
-}
-
-type CPUSpec struct {
-	Vendor   string `json:"vendor"`
-	Model    string `json:"model"`
-	Cores    int    `json:"cores"`
-	Threads  int    `json:"threads"`
-	Arch     string `json:"arch"`
-	BaseFreq int    `json:"base_freq"`
-	MaxFreq  int    `json:"max_freq"`
+	Usage       float64   `json:"usage"`
+	PerCore     []float64 `json:"per_core"`
+	Temperature float64   `json:"temperature"`
+	Frequency   float64   `json:"frequency"`
+	PowerWatt   float64   `json:"power_watt"`
 }
 
 type GPUMetric struct {
-	Spec      GPUSpec `json:"spec"`
-	Usage     float64 `json:"usage"`
-	VramTotal float64 `json:"vram_total"`
-	VramUsed  float64 `json:"vram_used"`
-	Temp      float64 `json:"temp"`
-	Watt      float64 `json:"watt"`
-}
-
-type GPUSpec struct {
-	Vendor string `json:"vendor"`
-	Model  string `json:"model"`
+	ID               int     `json:"id"`
+	Vendor           string  `json:"vendor"`
+	Model            string  `json:"model"`
+	Temperature      float64 `json:"temperature"`
+	Usage            float64 `json:"usage"`
+	VramTotalGB      float64 `json:"vram_total_gb"`
+	VramUsedGB       float64 `json:"vram_used_gb"`
+	VramUsagePercent float64 `json:"vram_usage_percent"`
+	PowerWatt        float64 `json:"power_watt"`
+	FanSpeedPercent  float64 `json:"fan_speed_percent"`
 }
 
 type MemoryMetric struct {
-	Specs        []MemorySpec `json:"specs"`
-	MemTotal     float64      `json:"mem_total"`
-	MemAvailable float64      `json:"mem_available"`
-	MemUsed      float64      `json:"mem_used"`
-	SwapTotal    float64      `json:"swap_total"`
-	SwapFree     float64      `json:"swap_free"`
-	SwapUsed     float64      `json:"swap_used"`
-}
-
-type MemorySpec struct {
-	Size         string `json:"size"`
-	Type         string `json:"type"`
-	Speed        string `json:"speed"`
-	Manufacturer string `json:"manufacturer"`
-	PartNumber   string `json:"part_number"`
-	FormFactor   string `json:"form_factor"`
+	TotalGB     float64 `json:"total_gb"`
+	UsedGB      float64 `json:"used_gb"`
+	AvailableGB float64 `json:"available_gb"`
+	SwapTotalGB float64 `json:"swap_total_gb"`
+	SwapFreeGB  float64 `json:"swap_free_gb"`
+	SwapUsedGB  float64 `json:"swap_used_gb"`
 }
 
 type DiskMetric struct {
-	Total float64 `json:"total"`
-	Free  float64 `json:"free"`
-	Used  float64 `json:"used"`
-	Temp  float64 `json:"temp"`
+	Name        string  `json:"name"`
+	TotalGB     float64 `json:"total_gb"`
+	UsedGB      float64 `json:"used_gb"`
+	FreeGB      float64 `json:"free_gb"`
+	Percent     float64 `json:"percent"`
+	Temperature float64 `json:"temperature"`
 }
 
 type NetworkMetric struct {
-	Upload   float64 `json:"upload"`
-	Download float64 `json:"download"`
-}
-
-type SystemMetric struct {
-	Hostname string `json:"hostname"`
-	OS       string `json:"os"`
-	Kernel   string `json:"kernel"`
-	Uptime   uint64 `json:"uptime"`
+	RXBytes uint64  `json:"rx_bytes"`
+	TXBytes uint64  `json:"tx_bytes"`
+	RXSpeed float64 `json:"rx_speed"`
+	TXSpeed float64 `json:"tx_speed"`
 }
 
 type Metrics struct {
-	CPU      CPUMetric     `json:"cpu"`
-	GPU      GPUMetric     `json:"gpu"`
-	Memory   MemoryMetric  `json:"memory"`
-	Disk     DiskMetric    `json:"disk"`
-	Network  NetworkMetric `json:"network"`
-	System   SystemMetric  `json:"system"`
-	Metadata Metadata      `json:"metadata"`
+	CPU           CPUMetric     `json:"cpu"`
+	GPU           []GPUMetric   `json:"gpu"`
+	Memory        MemoryMetric  `json:"memory"`
+	Disk          []DiskMetric  `json:"disk"`
+	Network       NetworkMetric `json:"network"`
+	UptimeSeconds float64       `json:"uptime_seconds"`
 }

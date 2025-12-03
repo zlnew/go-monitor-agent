@@ -18,9 +18,6 @@ type Registry struct {
 func NewRegistry() *Registry {
 	return &Registry{
 		collectors: make(map[string]Collector),
-		snapshot: Metrics{
-			Metadata: DefaultMetadata(),
-		},
 	}
 }
 
@@ -36,15 +33,15 @@ func (r *Registry) Update(name string, value any) {
 	case "cpu":
 		r.snapshot.CPU = value.(CPUMetric)
 	case "gpu":
-		r.snapshot.GPU = value.(GPUMetric)
+		r.snapshot.GPU = value.([]GPUMetric)
 	case "memory":
 		r.snapshot.Memory = value.(MemoryMetric)
 	case "disk":
-		r.snapshot.Disk = value.(DiskMetric)
+		r.snapshot.Disk = value.([]DiskMetric)
 	case "network":
 		r.snapshot.Network = value.(NetworkMetric)
-	case "system":
-		r.snapshot.System = value.(SystemMetric)
+	case "uptime":
+		r.snapshot.UptimeSeconds = value.(float64)
 	}
 	r.mu.Unlock()
 }

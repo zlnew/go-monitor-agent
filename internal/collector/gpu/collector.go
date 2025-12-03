@@ -9,18 +9,16 @@ func NewCollector() *Collector {
 
 func (c *Collector) Collect(ctx context.Context) (any, error) {
 	usage := getUsage()
-	temp, _ := getTemp()
-	vramTotal := getVramTotal()
-	vramUsed := getVramUsed()
-	watt, _ := getPower()
-	spec, _ := getSpec()
+	temperature := getTemperature()
+	vramTotalGB := getVramTotalGB()
+	vramUsedGB := getVramUsedGB()
+	powerWatt := getPowerWatt()
 
-	return GPUMetric{
-		Spec:      spec,
-		Usage:     usage,
-		Temp:      temp,
-		VramTotal: vramTotal,
-		VramUsed:  vramUsed,
-		Watt:      watt,
-	}, nil
+	return []GPUMetric{{
+		Usage:       usage,
+		Temperature: temperature,
+		VramTotalGB: vramTotalGB,
+		VramUsedGB:  vramUsedGB,
+		PowerWatt:   powerWatt,
+	}}, nil
 }
