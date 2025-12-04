@@ -5,7 +5,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"zlnew/monitor-agent/internal/core"
 )
+
+var gpuPowerEMA = map[string]*core.EMA{}
 
 func readVendor(card string) string {
 	b, err := os.ReadFile("/sys/class/drm/" + card + "/device/vendor")
@@ -87,7 +91,7 @@ func readVRAM(card string) (total float64, used float64, percent float64) {
 	return
 }
 
-func readPower(card string) float64 {
+func readPowerRaw(card string) float64 {
 	hwmon := "/sys/class/drm/" + card + "/device/hwmon"
 	hwmons, _ := os.ReadDir(hwmon)
 
@@ -101,6 +105,19 @@ func readPower(card string) float64 {
 	}
 
 	return 0
+}
+
+func readPower(card string) (raw float64, smooth float64) {
+	raw = readPowerRaw(card)
+
+	ema, ok := gpuPowerEMA[card]
+	if !ok {
+		ema = core.NewEMA(0.3)
+		gpuPowerEMA[card] = ema
+	}
+
+	smooth = ema.Add(raw)
+	return
 }
 
 func readFanSpeedPercent(card string) float64 {

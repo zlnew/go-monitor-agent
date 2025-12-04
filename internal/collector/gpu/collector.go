@@ -18,7 +18,7 @@ func (c *Collector) Collect(ctx context.Context) ([]GPUMetric, error) {
 		temp := readTemperature(card)
 		usage := readCoreUsage(card)
 		vramTotal, vramUsed, vramPercent := readVRAM(card)
-		power := readPower(card)
+		_, powerWatt := readPower(card)
 		fanSpeed := readFanSpeedPercent(card)
 
 		out = append(out, GPUMetric{
@@ -31,7 +31,7 @@ func (c *Collector) Collect(ctx context.Context) ([]GPUMetric, error) {
 			VRAMTotalGB:      vramTotal,
 			VRAMUsedGB:       vramUsed,
 			VRAMPercent:      vramPercent,
-			PowerWatt:        power,
+			PowerWatt:        powerWatt,
 			FanSpeedPercent:  fanSpeed,
 		})
 	}
