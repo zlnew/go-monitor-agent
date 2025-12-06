@@ -5,9 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
-	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -27,10 +25,11 @@ type Server struct {
 	log   logger.Logger
 	cfg   *config.Config
 	srv   *http.Server
+	hub   *Hub
 }
 
-func NewServer(cfg *config.Config, store *core.SnapshotStore, log logger.Logger) *Server {
-	return &Server{cfg: cfg, store: store, log: log}
+func NewServer(cfg *config.Config, store *core.SnapshotStore, log logger.Logger, hub *Hub) *Server {
+	return &Server{cfg: cfg, store: store, log: log, hub: hub}
 }
 
 func (s *Server) Start(ctx context.Context) error {
@@ -90,26 +89,32 @@ func (s *Server) handleWs(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("upgrade", "error", err)
 		return
 	}
-	defer conn.Close()
 
-	ticker := time.NewTicker(s.cfg.Interval)
-	defer ticker.Stop()
+	subscribedRooms := make(map[string]*Room)
+	defer func() {
+		for _, room := range subscribedRooms {
+			room.unregister <- conn
+		}
+	}()
 
 	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case <-ticker.C:
-			data := s.store.Get()
-			if err := conn.WriteJSON(data); err != nil {
-				var netErr *net.OpError
-				if errors.As(err, &netErr) && errors.Is(netErr.Err, syscall.EPIPE) {
-					s.log.Debug("client disconnected", "remote_addr", conn.RemoteAddr())
-					return
-				}
-				s.log.Error("write", "error", err)
-				return
-			}
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			s.log.Info("client disconnected", "remote_addr", conn.RemoteAddr())
+			break
+		}
+
+		var msg ClientMessage
+		if err := json.Unmarshal(message, &msg); err != nil {
+			s.log.Error("unmarshal message", "error", err)
+			continue
+		}
+
+		if msg.Type == "subscribe" {
+			room := s.hub.GetOrCreateRoom(msg.Channel)
+			room.register <- conn
+			subscribedRooms[msg.Channel] = room
+			s.log.Info("client subscribed", "channel", msg.Channel, "remote_addr", conn.RemoteAddr())
 		}
 	}
 }

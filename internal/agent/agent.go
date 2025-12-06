@@ -14,12 +14,13 @@ type Agent struct {
 	sampler *Sampler
 	store   *core.SnapshotStore
 	http    *http.Server
+	hub     *http.Hub
 }
 
-func New(log logger.Logger, cfg *config.Config) *Agent {
+func New(log logger.Logger, cfg *config.Config, hub *http.Hub) *Agent {
 	sam := NewSampler(log)
 	store := core.NewSnapshotStore()
-	httpServer := http.NewServer(cfg, store, log)
+	httpServer := http.NewServer(cfg, store, log, hub)
 
 	return &Agent{
 		log:     log,
@@ -27,5 +28,6 @@ func New(log logger.Logger, cfg *config.Config) *Agent {
 		sampler: sam,
 		store:   store,
 		http:    httpServer,
+		hub:     hub,
 	}
 }

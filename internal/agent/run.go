@@ -41,7 +41,10 @@ func (a *Agent) runStream(ctx context.Context) error {
 }
 
 func (a *Agent) runHTTP(ctx context.Context) error {
-	sched := core.NewScheduler(a.cfg.Interval, a.log, a.sampler.Collect, a.store.Set)
+	sched := core.NewScheduler(a.cfg.Interval, a.log, a.sampler.Collect, func(m core.Metrics) {
+		a.store.Set(m)
+		a.hub.BroadcastMetrics(m)
+	})
 	go sched.Start(ctx)
 
 	return a.http.Start(ctx)
