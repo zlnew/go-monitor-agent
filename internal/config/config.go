@@ -10,17 +10,10 @@ import (
 
 type Config struct {
 	Address   string
-	Mode      string
 	Interval  time.Duration
 	LogLevel  string
 	LogFormat string
 }
-
-const (
-	ModeServe    = "serve"
-	ModeStream   = "stream"
-	ModeSnapshot = "snapshot"
-)
 
 func Load() *Config {
 	godotenv.Load()
@@ -49,7 +42,6 @@ func Load() *Config {
 
 	return &Config{
 		Address:   addr,
-		Mode:      ModeServe,
 		Interval:  interval,
 		LogLevel:  logLevel,
 		LogFormat: logFormat,

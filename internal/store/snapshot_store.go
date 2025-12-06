@@ -1,3 +1,4 @@
+// Package store
 package store
 
 import (

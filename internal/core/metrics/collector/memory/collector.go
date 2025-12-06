@@ -1,3 +1,4 @@
+// Package memory
 package memory
 
 import (

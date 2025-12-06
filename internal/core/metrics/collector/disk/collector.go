@@ -1,3 +1,4 @@
+// Package disk
 package disk
 
 import (

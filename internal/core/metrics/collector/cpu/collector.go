@@ -1,3 +1,4 @@
+// Package cpu
 package cpu
 
 import (
