@@ -21,32 +21,51 @@ func NewAuthHandler(svc auth.AuthService, cfg *config.Config) *AuthHandler {
 	}
 }
 
+type APIResponse struct {
+	Message string `json:"message,omitempty"`
+	Data    any    `json:"data,omitempty"`
+}
+
+func writeJSON(w http.ResponseWriter, status int, resp APIResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(resp)
+}
+
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req auth.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Message: "Invalid request body",
+		})
 		return
 	}
 
 	if err := h.svc.Register(r.Context(), req); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		writeJSON(w, http.StatusInternalServerError, APIResponse{
+			Message: err.Error(),
+		})
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"message": "user created"})
+	writeJSON(w, http.StatusCreated, APIResponse{
+		Message: "User created successfully",
+	})
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req auth.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Message: "Invalid request body",
+		})
 		return
 	}
 
 	res, err := h.svc.Login(r.Context(), req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		writeJSON(w, http.StatusUnauthorized, APIResponse{
+			Message: err.Error(),
+		})
 		return
 	}
 
@@ -60,8 +79,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(res.User)
+	writeJSON(w, http.StatusOK, APIResponse{
+		Message: "Login successful",
+		Data:    res.User,
+	})
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +108,5 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{}`))
+	writeJSON(w, http.StatusNoContent, APIResponse{})
 }
