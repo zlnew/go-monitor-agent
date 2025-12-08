@@ -8,13 +8,14 @@ import (
 	"syscall"
 	"time"
 
-	"horizonx-server/api/rest"
 	"horizonx-server/internal/config"
 	"horizonx-server/internal/core"
+	"horizonx-server/internal/core/auth"
 	"horizonx-server/internal/core/metrics"
 	"horizonx-server/internal/logger"
 	"horizonx-server/internal/storage/snapshot"
 	"horizonx-server/internal/storage/sqlite"
+	"horizonx-server/internal/transport/rest"
 	"horizonx-server/internal/transport/websocket"
 	"horizonx-server/pkg/types"
 )
@@ -48,14 +49,20 @@ func main() {
 		}
 	}()
 
-	router := rest.NewRouter(cfg, ms, hub, db, log)
-	srv := &http.Server{
-		Addr:         cfg.Address,
-		Handler:      router,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
+	userRepo := sqlite.NewUserRepository(db)
+	authService := auth.NewService(userRepo, cfg)
+
+	wsHandler := websocket.NewHandler(hub, cfg, log)
+	authHandler := rest.NewAuthHandler(authService, cfg)
+	metricsHandler := rest.NewMetricsHandler(ms)
+
+	router := rest.NewRouter(cfg, &rest.RouterDeps{
+		WS:      wsHandler,
+		Auth:    authHandler,
+		Metrics: metricsHandler,
+	})
+
+	srv := rest.NewServer(router, cfg.Address)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -73,6 +80,7 @@ func main() {
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			log.Error("http server shutdown error", "error", err)
 		}
+
 	case err := <-errCh:
 		log.Error("http server error", "error", err)
 	}

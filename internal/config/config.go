@@ -2,6 +2,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -21,7 +22,9 @@ type Config struct {
 }
 
 func Load() *Config {
-	godotenv.Load()
+	if err := godotenv.Load(); err != nil {
+		fmt.Println("Warning: .env file not found")
+	}
 
 	addr := os.Getenv("HTTP_ADDR")
 	if addr == "" {
@@ -57,6 +60,9 @@ func Load() *Config {
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		panic("FATAL: JWT_SECRET environment variable is not set!.")
+	}
 
 	jwtExpiry := 24 * time.Hour
 	if raw := os.Getenv("JWT_EXPIRY"); raw != "" {

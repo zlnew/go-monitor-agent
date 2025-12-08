@@ -1,5 +1,4 @@
-// Package handler
-package handler
+package rest
 
 import (
 	"encoding/json"

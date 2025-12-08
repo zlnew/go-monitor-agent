@@ -1,7 +1,15 @@
 // Package auth
 package auth
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var (
+	ErrEmailAlreadyExists = errors.New("email already exists")
+	ErrInvalidCredentials = errors.New("invalid credentials")
+)
 
 type User struct {
 	ID       int64  `json:"id"`

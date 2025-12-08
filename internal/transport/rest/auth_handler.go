@@ -1,4 +1,4 @@
-package handler
+package rest
 
 import (
 	"encoding/json"
@@ -22,21 +22,10 @@ func NewAuthHandler(svc auth.AuthService, cfg *config.Config) *AuthHandler {
 	}
 }
 
-type APIResponse struct {
-	Message string `json:"message,omitempty"`
-	Data    any    `json:"data,omitempty"`
-}
-
-func writeJSON(w http.ResponseWriter, status int, resp APIResponse) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(resp)
-}
-
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req auth.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, APIResponse{
+		WriteJSON(w, http.StatusBadRequest, APIResponse{
 			Message: "Invalid request body",
 		})
 		return
@@ -44,19 +33,19 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.svc.Register(r.Context(), req); err != nil {
 		if errors.Is(err, auth.ErrEmailAlreadyExists) {
-			writeJSON(w, http.StatusConflict, APIResponse{
+			WriteJSON(w, http.StatusConflict, APIResponse{
 				Message: "Email already registered",
 			})
 			return
 		}
 
-		writeJSON(w, http.StatusInternalServerError, APIResponse{
+		WriteJSON(w, http.StatusInternalServerError, APIResponse{
 			Message: "Something went wrong, please try again later",
 		})
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, APIResponse{
+	WriteJSON(w, http.StatusCreated, APIResponse{
 		Message: "User created successfully.",
 	})
 }
@@ -64,7 +53,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req auth.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, APIResponse{
+		WriteJSON(w, http.StatusBadRequest, APIResponse{
 			Message: "Invalid request body",
 		})
 		return
@@ -73,13 +62,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	res, err := h.svc.Login(r.Context(), req)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
-			writeJSON(w, http.StatusUnauthorized, APIResponse{
+			WriteJSON(w, http.StatusUnauthorized, APIResponse{
 				Message: "Invalid credentials",
 			})
 			return
 		}
 
-		writeJSON(w, http.StatusInternalServerError, APIResponse{
+		WriteJSON(w, http.StatusInternalServerError, APIResponse{
 			Message: "Something went wrong, please try again later",
 		})
 		return
@@ -95,7 +84,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	writeJSON(w, http.StatusOK, APIResponse{
+	WriteJSON(w, http.StatusOK, APIResponse{
 		Message: "Login successful",
 		Data:    res.User,
 	})
@@ -124,5 +113,5 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	writeJSON(w, http.StatusNoContent, APIResponse{})
+	WriteJSON(w, http.StatusNoContent, APIResponse{})
 }

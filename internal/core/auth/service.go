@@ -2,31 +2,25 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"time"
+
+	"horizonx-server/internal/config"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type service struct {
-	repo        UserRepository
-	jwtSecret   []byte
-	tokenExpiry time.Duration
+	repo UserRepository
+	cfg  *config.Config
 }
 
-func NewService(repo UserRepository, secret string, expiry time.Duration) AuthService {
+func NewService(repo UserRepository, cfg *config.Config) AuthService {
 	return &service{
-		repo:        repo,
-		jwtSecret:   []byte(secret),
-		tokenExpiry: expiry,
+		repo: repo,
+		cfg:  cfg,
 	}
 }
-
-var (
-	ErrEmailAlreadyExists = errors.New("email already exists")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-)
 
 func (s *service) Register(ctx context.Context, req RegisterRequest) error {
 	if user, _ := s.repo.GetUserByEmail(ctx, req.Email); user != nil {
@@ -60,11 +54,11 @@ func (s *service) Login(ctx context.Context, req LoginRequest) (*AuthResponse, e
 	claims := jwt.MapClaims{
 		"sub":   user.ID,
 		"email": user.Email,
-		"exp":   time.Now().Add(s.tokenExpiry).Unix(),
+		"exp":   time.Now().Add(s.cfg.JWTExpiry).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(s.jwtSecret)
+	tokenString, err := token.SignedString([]byte(s.cfg.JWTSecret))
 	if err != nil {
 		return nil, err
 	}
