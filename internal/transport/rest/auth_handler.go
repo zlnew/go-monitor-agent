@@ -22,33 +22,6 @@ func NewAuthHandler(svc domain.AuthService, cfg *config.Config) *AuthHandler {
 	}
 }
 
-func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	var req domain.RegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		JSONError(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-
-	if validationErrors := ValidateStruct(req); len(validationErrors) > 0 {
-		JSONValidationError(w, validationErrors)
-		return
-	}
-
-	if err := h.svc.Register(r.Context(), req); err != nil {
-		if errors.Is(err, domain.ErrEmailAlreadyExists) {
-			JSONError(w, http.StatusConflict, "Email already registered")
-			return
-		}
-
-		JSONError(w, http.StatusInternalServerError, "Something went wrong")
-		return
-	}
-
-	JSONSuccess(w, http.StatusCreated, APIResponse{
-		Message: "User created successfully.",
-	})
-}
-
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req domain.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -34,7 +34,6 @@ func NewRouter(cfg *config.Config, deps *RouterDeps) http.Handler {
 
 	mux.Handle("GET /metrics", authMw.Then(http.HandlerFunc(deps.Metrics.Get)))
 
-	mux.HandleFunc("POST /auth/register", deps.Auth.Register)
 	mux.HandleFunc("POST /auth/login", deps.Auth.Login)
 	mux.Handle("POST /auth/logout", authMw.Then(http.HandlerFunc(deps.Auth.Logout)))
 

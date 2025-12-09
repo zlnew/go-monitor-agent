@@ -15,11 +15,6 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required,min=8"`
 }
 
-type RegisterRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8"`
-}
-
 type AuthResponse struct {
 	User        *User  `json:"user"`
 	AccessToken string `json:"access_token"`
@@ -27,5 +22,4 @@ type AuthResponse struct {
 
 type AuthService interface {
 	Login(ctx context.Context, req LoginRequest) (*AuthResponse, error)
-	Register(ctx context.Context, req RegisterRequest) error
 }

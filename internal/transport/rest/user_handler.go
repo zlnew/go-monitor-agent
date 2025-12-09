@@ -63,6 +63,10 @@ func (h *UserHandler) Store(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.svc.Create(r.Context(), req); err != nil {
+		if errors.Is(err, domain.ErrRoleNotFound) {
+			JSONError(w, http.StatusBadRequest, "Role not found")
+		}
+
 		if errors.Is(err, domain.ErrEmailAlreadyExists) {
 			JSONError(w, http.StatusBadRequest, "Email already registered")
 			return
@@ -95,6 +99,10 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, domain.ErrUserNotFound) {
 			JSONError(w, http.StatusNotFound, "User not found")
 			return
+		}
+
+		if errors.Is(err, domain.ErrRoleNotFound) {
+			JSONError(w, http.StatusBadRequest, "Role not found")
 		}
 
 		if errors.Is(err, domain.ErrEmailAlreadyExists) {

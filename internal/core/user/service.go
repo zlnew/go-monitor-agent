@@ -51,6 +51,10 @@ func (s *service) Get(ctx context.Context, opts domain.ListOptions) (*domain.Lis
 }
 
 func (s *service) Create(ctx context.Context, req domain.UserSaveRequest) error {
+	if _, err := s.repo.GetRoleByID(ctx, req.RoleID); err != nil {
+		return err
+	}
+
 	if user, _ := s.repo.GetUserByEmail(ctx, req.Email); user != nil {
 		return domain.ErrEmailAlreadyExists
 	}
@@ -61,8 +65,10 @@ func (s *service) Create(ctx context.Context, req domain.UserSaveRequest) error 
 	}
 
 	user := &domain.User{
+		Name:     req.Name,
 		Email:    req.Email,
 		Password: string(hashedPwd),
+		RoleID:   req.RoleID,
 	}
 
 	return s.repo.CreateUser(ctx, user)
@@ -77,6 +83,12 @@ func (s *service) Update(ctx context.Context, req domain.UserSaveRequest, userID
 	existingUser, err := s.repo.GetUserByID(ctx, parsedUserID)
 	if err != nil {
 		return err
+	}
+
+	if req.RoleID != existingUser.RoleID {
+		if _, err := s.repo.GetRoleByID(ctx, req.RoleID); err != nil {
+			return err
+		}
 	}
 
 	if req.Email != existingUser.Email {
@@ -96,8 +108,11 @@ func (s *service) Update(ctx context.Context, req domain.UserSaveRequest, userID
 	}
 
 	user := &domain.User{
+		ID:       parsedUserID,
+		Name:     req.Name,
 		Email:    req.Email,
 		Password: passwordToSave,
+		RoleID:   req.RoleID,
 	}
 
 	return s.repo.UpdateUser(ctx, user, parsedUserID)

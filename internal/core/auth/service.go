@@ -24,24 +24,6 @@ func NewService(repo domain.UserRepository, cfg *config.Config) domain.AuthServi
 	}
 }
 
-func (s *service) Register(ctx context.Context, req domain.RegisterRequest) error {
-	if user, _ := s.repo.GetUserByEmail(ctx, req.Email); user != nil {
-		return domain.ErrEmailAlreadyExists
-	}
-
-	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-
-	user := &domain.User{
-		Email:    req.Email,
-		Password: string(hashedPwd),
-	}
-
-	return s.repo.CreateUser(ctx, user)
-}
-
 func (s *service) Login(ctx context.Context, req domain.LoginRequest) (*domain.AuthResponse, error) {
 	user, err := s.repo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
