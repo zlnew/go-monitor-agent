@@ -1,10 +1,7 @@
-// Package auth
-package auth
+package domain
 
 import (
 	"context"
-
-	"horizonx-server/internal/domain"
 )
 
 type LoginRequest struct {
@@ -18,8 +15,8 @@ type RegisterRequest struct {
 }
 
 type AuthResponse struct {
-	User        *domain.User `json:"user"`
-	AccessToken string       `json:"access_token"`
+	User        *User  `json:"user"`
+	AccessToken string `json:"access_token"`
 }
 
 type AuthService interface {

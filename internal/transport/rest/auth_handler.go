@@ -7,16 +7,15 @@ import (
 	"time"
 
 	"horizonx-server/internal/config"
-	"horizonx-server/internal/core/auth"
 	"horizonx-server/internal/domain"
 )
 
 type AuthHandler struct {
-	svc auth.AuthService
+	svc domain.AuthService
 	cfg *config.Config
 }
 
-func NewAuthHandler(svc auth.AuthService, cfg *config.Config) *AuthHandler {
+func NewAuthHandler(svc domain.AuthService, cfg *config.Config) *AuthHandler {
 	return &AuthHandler{
 		svc: svc,
 		cfg: cfg,
@@ -24,7 +23,7 @@ func NewAuthHandler(svc auth.AuthService, cfg *config.Config) *AuthHandler {
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	var req auth.RegisterRequest
+	var req domain.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		JSONError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -46,7 +45,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var req auth.LoginRequest
+	var req domain.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		JSONError(w, http.StatusBadRequest, "Invalid request body")
 		return

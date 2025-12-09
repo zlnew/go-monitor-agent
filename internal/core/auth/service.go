@@ -1,3 +1,4 @@
+// Package auth
 package auth
 
 import (
@@ -16,14 +17,14 @@ type service struct {
 	cfg  *config.Config
 }
 
-func NewService(repo domain.UserRepository, cfg *config.Config) AuthService {
+func NewService(repo domain.UserRepository, cfg *config.Config) domain.AuthService {
 	return &service{
 		repo: repo,
 		cfg:  cfg,
 	}
 }
 
-func (s *service) Register(ctx context.Context, req RegisterRequest) error {
+func (s *service) Register(ctx context.Context, req domain.RegisterRequest) error {
 	if user, _ := s.repo.GetUserByEmail(ctx, req.Email); user != nil {
 		return domain.ErrEmailAlreadyExists
 	}
@@ -41,7 +42,7 @@ func (s *service) Register(ctx context.Context, req RegisterRequest) error {
 	return s.repo.CreateUser(ctx, user)
 }
 
-func (s *service) Login(ctx context.Context, req LoginRequest) (*AuthResponse, error) {
+func (s *service) Login(ctx context.Context, req domain.LoginRequest) (*domain.AuthResponse, error) {
 	user, err := s.repo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, domain.ErrInvalidCredentials
@@ -64,7 +65,7 @@ func (s *service) Login(ctx context.Context, req LoginRequest) (*AuthResponse, e
 		return nil, err
 	}
 
-	return &AuthResponse{
+	return &domain.AuthResponse{
 		AccessToken: tokenString,
 		User:        user,
 	}, nil
