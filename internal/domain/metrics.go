@@ -6,7 +6,7 @@ import (
 )
 
 type Metrics struct {
-	ServerID      int64         `json:"-"`
+	ServerID      int64         `json:"server_id"`
 	OSInfo        OSInfo        `json:"os_info"`
 	CPU           CPUMetric     `json:"cpu"`
 	GPU           []GPUMetric   `json:"gpu"`
