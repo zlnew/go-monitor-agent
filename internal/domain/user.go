@@ -44,13 +44,13 @@ type UserSaveRequest struct {
 }
 
 type UserRepository interface {
-	GetUsers(ctx context.Context, opts ListOptions) ([]*User, int64, error)
+	List(ctx context.Context, opts ListOptions) ([]*User, int64, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	GetUserByID(ctx context.Context, ID int64) (*User, error)
 	GetRoleByID(ctx context.Context, roleID int64) (*Role, error)
-	CreateUser(ctx context.Context, user *User) error
-	UpdateUser(ctx context.Context, user *User, userID int64) error
-	DeleteUser(ctx context.Context, userID int64) error
+	Create(ctx context.Context, user *User) error
+	Update(ctx context.Context, user *User, userID int64) error
+	Delete(ctx context.Context, userID int64) error
 }
 
 type UserService interface {

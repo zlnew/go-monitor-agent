@@ -2,7 +2,6 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -18,26 +17,21 @@ type Config struct {
 	LogFormat      string
 	JWTSecret      string
 	JWTExpiry      time.Duration
-	DBPath         string
+	DatabaseURL    string
 }
 
 func Load() *Config {
-	if err := godotenv.Load(); err != nil {
-		fmt.Println("Warning: .env file not found")
-	}
+	_ = godotenv.Load()
 
-	addr := os.Getenv("HTTP_ADDR")
-	if addr == "" {
-		addr = ":3000"
-	}
+	addr := getEnv("HTTP_ADDR", ":3000")
 
 	var origins []string
 	rawOrigins := os.Getenv("ALLOWED_ORIGINS")
 	if rawOrigins != "" {
-		for o := range strings.SplitSeq(rawOrigins, ",") {
-			o = strings.TrimSpace(o)
-			if o != "" {
-				origins = append(origins, o)
+		parts := strings.SplitSeq(rawOrigins, ",")
+		for o := range parts {
+			if trimmed := strings.TrimSpace(o); trimmed != "" {
+				origins = append(origins, trimmed)
 			}
 		}
 	}
@@ -49,21 +43,6 @@ func Load() *Config {
 		}
 	}
 
-	logLevel := os.Getenv("LOG_LEVEL")
-	if logLevel == "" {
-		logLevel = "info"
-	}
-
-	logFormat := os.Getenv("LOG_FORMAT")
-	if logFormat == "" {
-		logFormat = "text"
-	}
-
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		panic("FATAL: JWT_SECRET environment variable is not set!.")
-	}
-
 	jwtExpiry := 24 * time.Hour
 	if raw := os.Getenv("JWT_EXPIRY"); raw != "" {
 		if parsed, err := time.ParseDuration(raw); err == nil && parsed > 0 {
@@ -71,19 +50,21 @@ func Load() *Config {
 		}
 	}
 
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "./app.db"
-	}
-
 	return &Config{
 		Address:        addr,
 		AllowedOrigins: origins,
 		Interval:       interval,
-		LogLevel:       logLevel,
-		LogFormat:      logFormat,
-		JWTSecret:      jwtSecret,
+		LogLevel:       getEnv("LOG_LEVEL", "info"),
+		LogFormat:      getEnv("LOG_FORMAT", "text"),
+		JWTSecret:      os.Getenv("JWT_SECRET"),
 		JWTExpiry:      jwtExpiry,
-		DBPath:         dbPath,
+		DatabaseURL:    getEnv("DATABASE_URL", "postgres://user:pass@localhost:5432/horizonx"),
 	}
+}
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }

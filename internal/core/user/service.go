@@ -33,7 +33,7 @@ func (s *service) Get(ctx context.Context, opts domain.ListOptions) (*domain.Lis
 		}
 	}
 
-	users, total, err := s.repo.GetUsers(ctx, opts)
+	users, total, err := s.repo.List(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (s *service) Create(ctx context.Context, req domain.UserSaveRequest) error 
 		RoleID:   req.RoleID,
 	}
 
-	return s.repo.CreateUser(ctx, user)
+	return s.repo.Create(ctx, user)
 }
 
 func (s *service) Update(ctx context.Context, req domain.UserSaveRequest, userID string) error {
@@ -115,7 +115,7 @@ func (s *service) Update(ctx context.Context, req domain.UserSaveRequest, userID
 		RoleID:   req.RoleID,
 	}
 
-	return s.repo.UpdateUser(ctx, user, parsedUserID)
+	return s.repo.Update(ctx, user, parsedUserID)
 }
 
 func (s *service) Delete(ctx context.Context, userID string) error {
@@ -128,5 +128,5 @@ func (s *service) Delete(ctx context.Context, userID string) error {
 		return err
 	}
 
-	return s.repo.DeleteUser(ctx, parsedUserID)
+	return s.repo.Delete(ctx, parsedUserID)
 }

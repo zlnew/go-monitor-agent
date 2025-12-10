@@ -1,115 +1,145 @@
 #!/bin/bash
 set -e
 
+# --- Configuration ---
 APP_NAME="horizonx-server"
-MIGRATE_NAME="horizonx-server-migrate"
-SEED_NAME="horizonx-server-seed"
+AGENT_NAME="horizonx-agent"
+MIGRATE_TOOL="horizonx-migrate"
+SEED_TOOL="horizonx-seed"
 
-SERVICE_NAME="horizonx-server"
+SERVER_SERVICE="horizonx-server"
+AGENT_SERVICE="horizonx-agent"
+
 INSTALL_DIR="/usr/local/bin"
-CONFIG_DIR="/etc/horizonx-server"
-DATA_DIR="/var/lib/horizonx-server"
-LOG_DIR="/var/log/horizonx-server"
-USER="horizonx"
-GROUP="horizonx"
+CONFIG_DIR="/etc/horizonx"
+LOG_DIR="/var/log/horizonx"
 
-BINARY_PATH="./bin/${APP_NAME}"
-MIGRATE_BINARY_PATH="./bin/${MIGRATE_NAME}"
-SEED_BINARY_PATH="./bin/${SEED_NAME}"
+# User System
+SYS_USER="horizonx"
+SYS_GROUP="horizonx"
 
-ENV_PATH="./.env.production"
-PROD_DB_PATH="${DATA_DIR}/horizonx.db"
+# Source Paths
+BIN_SRC="./bin"
+ENV_SERVER_SRC="./.env.server.prod"
+ENV_AGENT_SRC="./.env.agent.prod"
 
-echo "=== HorizonX Deployment Script (Root Mode) ==="
+echo "=== HorizonX Secure Deployment (Split Config) ==="
 
-# 1. Build binaries (Server + Tools)
-echo "Building binaries..."
+# 1. Build
+echo "🛠️  Building project..."
 make build
 
-# 2. Stop existing service
-if systemctl list-units --full -all | grep -q "${SERVICE_NAME}.service"; then
-    echo "Stopping existing systemd service..."
-    sudo systemctl stop $SERVICE_NAME || true
+# 2. Stop Services
+echo "🛑 Stopping existing services..."
+sudo systemctl stop $SERVER_SERVICE || true
+sudo systemctl stop $AGENT_SERVICE || true
+
+# 3. Create System User
+if ! id -u $SYS_USER >/dev/null 2>&1; then
+    echo "👤 Creating system user $SYS_USER..."
+    sudo useradd -r -s /bin/false $SYS_USER
 fi
 
-# 3. Create system user
-if ! id -u $USER >/dev/null 2>&1; then
-    echo "Creating system user $USER..."
-    sudo useradd -r -s /bin/false $USER
-fi
-
-# 4. Setup directories
-echo "Setting up directories..."
-sudo mkdir -p $CONFIG_DIR $DATA_DIR $LOG_DIR
-# Config & Log owned by horizonx user
-sudo chown -R $USER:$GROUP $CONFIG_DIR $DATA_DIR $LOG_DIR
+# 4. Directories
+echo "📂 Setting up directories..."
+sudo mkdir -p $CONFIG_DIR $LOG_DIR
+# Log dir owned by sys user
+sudo chown -R $SYS_USER:$SYS_GROUP $LOG_DIR
+sudo chmod 755 $LOG_DIR
+# Config dir owned by root initially
+sudo mkdir -p $CONFIG_DIR
+sudo chmod 755 $CONFIG_DIR
 
 # 5. Deploy Binaries
-echo "Deploying binaries to ${INSTALL_DIR}..."
-# Copy Server
-sudo cp $BINARY_PATH $INSTALL_DIR/$APP_NAME
-sudo chown root:root $INSTALL_DIR/$APP_NAME
-sudo chmod +x $INSTALL_DIR/$APP_NAME
+echo "🚀 Copying binaries..."
+sudo cp $BIN_SRC/server $INSTALL_DIR/$APP_NAME
+sudo cp $BIN_SRC/agent $INSTALL_DIR/$AGENT_NAME
+sudo cp $BIN_SRC/migrate $INSTALL_DIR/$MIGRATE_TOOL
+sudo cp $BIN_SRC/seed $INSTALL_DIR/$SEED_TOOL
+sudo chmod +x $INSTALL_DIR/*
 
-# Copy Migration Tool
-sudo cp $MIGRATE_BINARY_PATH $INSTALL_DIR/$MIGRATE_NAME
-sudo chown root:root $INSTALL_DIR/$MIGRATE_NAME
-sudo chmod +x $INSTALL_DIR/$MIGRATE_NAME
+# 6. Deploy Configs (THE CRITICAL PART)
+echo "📄 Deploying Separate Configurations..."
 
-# Copy Seeder Tool
-sudo cp $SEED_BINARY_PATH $INSTALL_DIR/$SEED_NAME
-sudo chown root:root $INSTALL_DIR/$SEED_NAME
-sudo chmod +x $INSTALL_DIR/$SEED_NAME
+# A. Server Config
+if [ -f "$ENV_SERVER_SRC" ]; then
+    sudo cp $ENV_SERVER_SRC $CONFIG_DIR/server.env
+    sudo chown root:$SYS_GROUP $CONFIG_DIR/server.env
+    sudo chmod 640 $CONFIG_DIR/server.env
+    echo "   -> server.env deployed (Secure)"
+else
+    echo "⚠️  FATAL: $ENV_SERVER_SRC not found!"
+    exit 1
+fi
 
-# 6. Copy .env
-echo "Copying config..."
-sudo cp $ENV_PATH $CONFIG_DIR/.env
-sudo chown $USER:$GROUP $CONFIG_DIR/.env
-sudo chmod 600 $CONFIG_DIR/.env
+# B. Agent Config
+if [ -f "$ENV_AGENT_SRC" ]; then
+    sudo cp $ENV_AGENT_SRC $CONFIG_DIR/agent.env
+    sudo chown root:root $CONFIG_DIR/agent.env
+    sudo chmod 600 $CONFIG_DIR/agent.env
+    echo "   -> agent.env deployed (Secure)"
+else
+    echo "⚠️  WARNING: $ENV_AGENT_SRC not found! Agent service might fail."
+fi
 
-# 7. RUN MIGRATIONS
-echo "Running Database Migrations..."
-sudo $INSTALL_DIR/$MIGRATE_NAME -op=up -db=$PROD_DB_PATH
+# 7. Run Migrations (Pake Server Env)
+echo "📦 Running Database Migrations..."
+sudo sh -c "set -a; source $CONFIG_DIR/server.env; set +a; $INSTALL_DIR/$MIGRATE_TOOL -op=up"
 
-# 8. Create systemd service
-echo "Updating systemd service..."
-SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-sudo tee $SERVICE_FILE >/dev/null <<EOF
+# 8. Setup Systemd: SERVER
+echo "⚙️  Configuring Server Service..."
+SERVER_UNIT="/etc/systemd/system/${SERVER_SERVICE}.service"
+sudo tee $SERVER_UNIT >/dev/null <<EOF
 [Unit]
-Description=HorizonX Server (Root Mode)
-After=network.target
+Description=HorizonX Core Server
+After=network.target postgresql.service
 
 [Service]
 Type=simple
-EnvironmentFile=${CONFIG_DIR}/.env
-ExecStart=${INSTALL_DIR}/${APP_NAME}
-WorkingDirectory=${DATA_DIR}
-Restart=on-failure
+# Load SERVER specific env
+EnvironmentFile=$CONFIG_DIR/server.env
+ExecStart=$INSTALL_DIR/$APP_NAME
+Restart=always
 RestartSec=5
-# Run as root for full sensor/SSH access
-User=root
-Group=root
-# Output logs
-StandardOutput=file:${LOG_DIR}/out.log
-StandardError=file:${LOG_DIR}/error.log
+User=$SYS_USER
+Group=$SYS_GROUP
+StandardOutput=append:${LOG_DIR}/server.log
+StandardError=append:${LOG_DIR}/server.error.log
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# 9. Start Service
-echo "Reloading systemd and starting service..."
-sudo systemctl daemon-reload
-sudo systemctl enable $SERVICE_NAME
-sudo systemctl start $SERVICE_NAME
-sudo systemctl status $SERVICE_NAME --no-pager
+# 9. Setup Systemd: AGENT
+echo "⚙️  Configuring Agent Service..."
+AGENT_UNIT="/etc/systemd/system/${AGENT_SERVICE}.service"
+sudo tee $AGENT_UNIT >/dev/null <<EOF
+[Unit]
+Description=HorizonX Metrics Agent
+After=network.target ${SERVER_SERVICE}.service
 
-echo ""
-echo "=== Deployment Complete! ==="
-echo "Binaries installed:"
-echo "- Server:  ${INSTALL_DIR}/${APP_NAME}"
-echo "- Migrate: ${INSTALL_DIR}/${MIGRATE_NAME}"
-echo "- Seed:    ${INSTALL_DIR}/${SEED_NAME}"
-echo ""
-echo "To seed the database (Owner User), run:"
-echo "sudo OWNER_PASSWORD='yourpass' ${INSTALL_DIR}/${SEED_NAME} -db=${PROD_DB_PATH}"
+[Service]
+Type=simple
+# Load AGENT specific env
+EnvironmentFile=$CONFIG_DIR/agent.env
+ExecStart=$INSTALL_DIR/$AGENT_NAME
+Restart=always
+RestartSec=5
+# Run as root for hardware access
+User=root
+Group=root
+StandardOutput=append:${LOG_DIR}/agent.log
+StandardError=append:${LOG_DIR}/agent.error.log
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 10. Start
+echo "🔥 Reloading and Starting..."
+sudo systemctl daemon-reload
+sudo systemctl enable $SERVER_SERVICE $AGENT_SERVICE
+sudo systemctl start $SERVER_SERVICE
+sudo systemctl start $AGENT_SERVICE
+
+echo "✅ Deployment Success! Configurations are isolated."

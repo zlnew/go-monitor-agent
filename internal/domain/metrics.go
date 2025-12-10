@@ -1,5 +1,22 @@
 package domain
 
+import (
+	"context"
+	"time"
+)
+
+type Metrics struct {
+	ServerID      int64         `json:"-"`
+	OSInfo        OSInfo        `json:"os_info"`
+	CPU           CPUMetric     `json:"cpu"`
+	GPU           []GPUMetric   `json:"gpu"`
+	Memory        MemoryMetric  `json:"memory"`
+	Disk          []DiskMetric  `json:"disk"`
+	Network       NetworkMetric `json:"network"`
+	UptimeSeconds float64       `json:"uptime_seconds"`
+	RecordedAt    time.Time     `json:"recorded_at"`
+}
+
 type OSInfo struct {
 	Hostname      string `json:"hostname"`
 	Name          string `json:"name"`
@@ -61,12 +78,10 @@ type NetworkMetric struct {
 	TXSpeed float64 `json:"tx_speed"`
 }
 
-type Metrics struct {
-	OSInfo        OSInfo        `json:"os_info"`
-	CPU           CPUMetric     `json:"cpu"`
-	GPU           []GPUMetric   `json:"gpu"`
-	Memory        MemoryMetric  `json:"memory"`
-	Disk          []DiskMetric  `json:"disk"`
-	Network       NetworkMetric `json:"network"`
-	UptimeSeconds float64       `json:"uptime_seconds"`
+type MetricsRepository interface {
+	BulkInsert(ctx context.Context, metrics []Metrics) error
+}
+
+type MetricsService interface {
+	Ingest(ctx context.Context, m Metrics) error
 }

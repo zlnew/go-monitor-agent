@@ -1,5 +1,4 @@
-// Package core
-package core
+package metrics
 
 import (
 	"context"
@@ -17,14 +16,19 @@ type Scheduler struct {
 }
 
 func NewScheduler(interval time.Duration, log logger.Logger, sample func(context.Context) domain.Metrics, sink func(domain.Metrics)) *Scheduler {
-	return &Scheduler{interval: interval, log: log, sample: sample, sink: sink}
+	return &Scheduler{
+		interval: interval,
+		log:      log,
+		sample:   sample,
+		sink:     sink,
+	}
 }
 
 func (s *Scheduler) Start(ctx context.Context) {
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 
-	s.tick(ctx)
+	go s.tick(ctx)
 
 	for {
 		select {
@@ -41,6 +45,9 @@ func (s *Scheduler) tick(ctx context.Context) {
 		return
 	}
 
-	m := s.sample(ctx)
+	timeoutCtx, cancel := context.WithTimeout(ctx, s.interval)
+	defer cancel()
+
+	m := s.sample(timeoutCtx)
 	s.sink(m)
 }

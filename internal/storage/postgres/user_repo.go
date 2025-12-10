@@ -1,40 +1,45 @@
-package sqlite
+package postgres
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"horizonx-server/internal/domain"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type UserRepository struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
-func NewUserRepository(db *sql.DB) domain.UserRepository {
+func NewUserRepository(db *pgxpool.Pool) domain.UserRepository {
 	return &UserRepository{db: db}
 }
 
-func (r *UserRepository) GetUsers(ctx context.Context, opts domain.ListOptions) ([]*domain.User, int64, error) {
+func (r *UserRepository) List(ctx context.Context, opts domain.ListOptions) ([]*domain.User, int64, error) {
 	baseQuery := `
 		FROM users u
 		LEFT JOIN roles r ON u.role_id = r.id
 		WHERE u.deleted_at IS NULL
 	`
 	args := []any{}
+	argCounter := 1
 
 	if opts.Search != "" {
-		baseQuery += " AND (u.email LIKE ? OR u.name LIKE ?)"
+		baseQuery += fmt.Sprintf(" AND (u.email ILIKE $%d OR u.name ILIKE $%d)", argCounter, argCounter+1)
 		searchParam := "%" + opts.Search + "%"
 		args = append(args, searchParam, searchParam)
+		argCounter += 2
 	}
 
 	var total int64
 	if opts.IsPaginate {
 		countQuery := "SELECT COUNT(*) " + baseQuery
-		if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		if err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 			return nil, 0, fmt.Errorf("failed to count users: %w", err)
 		}
 	}
@@ -49,13 +54,13 @@ func (r *UserRepository) GetUsers(ctx context.Context, opts domain.ListOptions) 
 
 	if opts.IsPaginate {
 		offset := (opts.Page - 1) * opts.Limit
-		selectQuery += " LIMIT ? OFFSET ?"
+		selectQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argCounter, argCounter+1)
 		args = append(args, opts.Limit, offset)
 	} else {
 		selectQuery += " LIMIT 1000"
 	}
 
-	rows, err := r.db.QueryContext(ctx, selectQuery, args...)
+	rows, err := r.db.Query(ctx, selectQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query users: %w", err)
 	}
@@ -92,10 +97,10 @@ func (r *UserRepository) GetUserByID(ctx context.Context, ID int64) (*domain.Use
 			r.id, r.name
 		FROM users u
 		LEFT JOIN roles r ON u.role_id = r.id
-		WHERE u.id = ? AND u.deleted_at IS NULL
+		WHERE u.id = $1 AND u.deleted_at IS NULL
 	`
 
-	row := r.db.QueryRowContext(ctx, query, ID)
+	row := r.db.QueryRow(ctx, query, ID)
 
 	var user domain.User
 	var role domain.Role
@@ -105,7 +110,7 @@ func (r *UserRepository) GetUserByID(ctx context.Context, ID int64) (*domain.Use
 		&role.ID, &role.Name,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrUserNotFound
 		}
 		return nil, err
@@ -122,10 +127,10 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*dom
 			r.id, r.name
 		FROM users u
 		LEFT JOIN roles r ON u.role_id = r.id
-		WHERE u.email = ? AND u.deleted_at IS NULL
+		WHERE u.email = $1 AND u.deleted_at IS NULL
 	`
 
-	row := r.db.QueryRowContext(ctx, query, email)
+	row := r.db.QueryRow(ctx, query, email)
 
 	var user domain.User
 	var role domain.Role
@@ -135,7 +140,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*dom
 		&role.ID, &role.Name,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrUserNotFound
 		}
 		return nil, err
@@ -146,12 +151,12 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*dom
 }
 
 func (r *UserRepository) GetRoleByID(ctx context.Context, roleID int64) (*domain.Role, error) {
-	query := `SELECT id, name FROM roles WHERE id = ?`
+	query := `SELECT id, name FROM roles WHERE id = $1`
 
 	var role domain.Role
-	err := r.db.QueryRowContext(ctx, query, roleID).Scan(&role.ID, &role.Name)
+	err := r.db.QueryRow(ctx, query, roleID).Scan(&role.ID, &role.Name)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrRoleNotFound
 		}
 		return nil, err
@@ -160,46 +165,54 @@ func (r *UserRepository) GetRoleByID(ctx context.Context, roleID int64) (*domain
 	return &role, nil
 }
 
-func (r *UserRepository) CreateUser(ctx context.Context, user *domain.User) error {
-	query := `INSERT INTO users (name, email, password, role_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
+func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
+	query := `
+		INSERT INTO users (name, email, password, role_id, created_at, updated_at) 
+		VALUES ($1, $2, $3, $4, $5, $6) 
+		RETURNING id
+	`
 
 	now := time.Now()
-	result, err := r.db.ExecContext(ctx, query, user.Name, user.Email, user.Password, user.RoleID, now, now)
+
+	err := r.db.QueryRow(ctx, query,
+		user.Name,
+		user.Email,
+		user.Password,
+		user.RoleID,
+		now,
+		now,
+	).Scan(&user.ID)
 	if err != nil {
 		return fmt.Errorf("failed to insert user: %w", err)
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return fmt.Errorf("failed to get last insert id: %w", err)
-	}
-
-	user.ID = id
 	user.CreatedAt = now
 	user.UpdatedAt = now
 
 	return nil
 }
 
-func (r *UserRepository) UpdateUser(ctx context.Context, user *domain.User, userID int64) error {
+func (r *UserRepository) Update(ctx context.Context, user *domain.User, userID int64) error {
 	query := `
 		UPDATE users 
-		SET name = ?, email = ?, password = ?, role_id = ?, updated_at = ?
-		WHERE id = ? AND deleted_at IS NULL
+		SET name = $1, email = $2, password = $3, role_id = $4, updated_at = $5
+		WHERE id = $6 AND deleted_at IS NULL
 	`
 
 	now := time.Now()
-	result, err := r.db.ExecContext(ctx, query, user.Name, user.Email, user.Password, user.RoleID, now, userID)
+	ct, err := r.db.Exec(ctx, query,
+		user.Name,
+		user.Email,
+		user.Password,
+		user.RoleID,
+		now,
+		userID,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to execute update query: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to retrieve affected rows: %w", err)
-	}
-
-	if rowsAffected == 0 {
+	if ct.RowsAffected() == 0 {
 		return fmt.Errorf("user with ID %d not found or deleted", userID)
 	}
 
@@ -208,20 +221,15 @@ func (r *UserRepository) UpdateUser(ctx context.Context, user *domain.User, user
 	return nil
 }
 
-func (r *UserRepository) DeleteUser(ctx context.Context, userID int64) error {
-	query := `UPDATE users SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`
+func (r *UserRepository) Delete(ctx context.Context, userID int64) error {
+	query := `UPDATE users SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL`
 
-	result, err := r.db.ExecContext(ctx, query, time.Now(), userID)
+	ct, err := r.db.Exec(ctx, query, time.Now(), userID)
 	if err != nil {
 		return fmt.Errorf("failed to execute soft delete query: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to retrieve affected rows: %w", err)
-	}
-
-	if rowsAffected == 0 {
+	if ct.RowsAffected() == 0 {
 		return fmt.Errorf("user with ID %d not found or already deleted", userID)
 	}
 

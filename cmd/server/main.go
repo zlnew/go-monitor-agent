@@ -9,14 +9,13 @@ import (
 	"time"
 
 	"horizonx-server/internal/config"
-	"horizonx-server/internal/core"
 	"horizonx-server/internal/core/auth"
 	"horizonx-server/internal/core/metrics"
+	"horizonx-server/internal/core/server"
 	"horizonx-server/internal/core/user"
-	"horizonx-server/internal/domain"
 	"horizonx-server/internal/logger"
+	"horizonx-server/internal/storage/postgres"
 	"horizonx-server/internal/storage/snapshot"
-	"horizonx-server/internal/storage/sqlite"
 	"horizonx-server/internal/transport/rest"
 	"horizonx-server/internal/transport/websocket"
 )
@@ -27,43 +26,44 @@ func main() {
 
 	cfg := config.Load()
 	log := logger.New(cfg)
-
-	ms := snapshot.NewMetricsStore()
 	hub := websocket.NewHub(log)
-	sampler := metrics.NewSampler(log)
-
-	sched := core.NewScheduler(cfg.Interval, log, sampler.Collect, func(m domain.Metrics) {
-		ms.Set(m)
-		hub.Emit("metrics", "metrics.updated", m)
-	})
-	go sched.Start(ctx)
 	go hub.Run()
 
-	db, err := sqlite.NewSqliteDB(cfg.DBPath, log)
-	if err != nil {
-		log.Error("sqlite", "connect", err)
-		return
+	if cfg.JWTSecret == "" {
+		panic("FATAL: JWT_SECRET is mandatory for Server!")
 	}
-	defer func() {
-		if err := db.Close(); err != nil {
-			log.Error("sqlite", "close", err)
-		}
-	}()
 
-	userRepo := sqlite.NewUserRepository(db)
-	userService := user.NewService(userRepo, cfg)
+	dbPool, err := postgres.InitDB(cfg.DatabaseURL, log)
+	if err != nil {
+		log.Error("Failed to init DB", "error", err)
+	}
+	defer dbPool.Close()
+
+	metricsRepo := postgres.NewMetricsRepository(dbPool)
+	serverRepo := postgres.NewServerRepository(dbPool)
+	userRepo := postgres.NewUserRepository(dbPool)
+
+	metricsStore := snapshot.NewMetricsStore()
+
+	metricsService := metrics.NewService(metricsRepo, metricsStore, hub)
+	serverService := server.NewService(serverRepo)
 	authService := auth.NewService(userRepo, cfg)
+	userService := user.NewService(userRepo, cfg)
 
 	wsHandler := websocket.NewHandler(hub, cfg, log)
-	metricsHandler := rest.NewMetricsHandler(ms)
+	metricsHandler := rest.NewMetricsHandler(metricsService)
+	serverHandler := rest.NewServerHandler(serverService)
 	authHandler := rest.NewAuthHandler(authService, cfg)
 	userHandler := rest.NewUserHandler(userService, cfg)
 
 	router := rest.NewRouter(cfg, &rest.RouterDeps{
 		WS:      wsHandler,
 		Metrics: metricsHandler,
+		Server:  serverHandler,
 		Auth:    authHandler,
 		User:    userHandler,
+
+		ServerRepo: serverRepo,
 	})
 
 	srv := rest.NewServer(router, cfg.Address)

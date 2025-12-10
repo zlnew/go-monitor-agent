@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS idx_metrics_server_time;
+DROP TABLE IF EXISTS server_metrics CASCADE;
+DROP TABLE IF EXISTS servers CASCADE;

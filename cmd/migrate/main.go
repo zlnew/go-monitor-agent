@@ -7,47 +7,51 @@ import (
 	"log"
 	"os"
 
-	"horizonx-server/internal/storage/sqlite"
+	storagePg "horizonx-server/internal/storage/postgres"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	_ = godotenv.Load()
+	defaultDSN := os.Getenv("DATABASE_URL")
+
 	cmd := flag.String("op", "", "operation: up, down, version, force")
 	steps := flag.Int("steps", 0, "number of steps for up/down (0 = all)")
-	dbPath := flag.String("db", "horizonx.db", "path to sqlite database file")
+	dsn := flag.String("dsn", defaultDSN, "database url (postgres://user:pass@host:port/db)")
 	flag.Parse()
 
-	if *cmd == "" {
-		fmt.Println("Usage: go run cmd/sqlite-migrate/main.go -op=[up|down|version] -steps=[n] -db=[path]")
+	if *cmd == "" || *dsn == "" {
+		fmt.Println("Usage: go run cmd/migrate/main.go -op=[up|down] -dsn=[postgres://...]")
 		os.Exit(1)
 	}
 
-	dsn := fmt.Sprintf("file:%s?_busy_timeout=5000&_journal_mode=WAL&_foreign_keys=on", *dbPath)
-	db, err := sql.Open("sqlite3", dsn)
+	db, err := sql.Open("pgx", *dsn)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("could not connect to db: %v", err)
 	}
 	defer db.Close()
 
-	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		log.Fatalf("could not create driver: %v", err)
 	}
 
-	src, err := iofs.New(sqlite.MigrationsFS, "migrations")
+	src, err := iofs.New(storagePg.MigrationsFS, "migrations")
 	if err != nil {
 		log.Fatalf("could not create source driver: %v", err)
 	}
 
-	m, err := migrate.NewWithInstance("iofs", src, "sqlite3", driver)
+	m, err := migrate.NewWithInstance("iofs", src, "postgres", driver)
 	if err != nil {
 		log.Fatalf("could not create migrate instance: %v", err)
 	}
 
+	log.Printf("Running migration op: %s...", *cmd)
 	switch *cmd {
 	case "up":
 		if *steps > 0 {
@@ -63,7 +67,7 @@ func main() {
 		}
 	case "version":
 		v, dirty, err := m.Version()
-		if err != nil {
+		if err != nil && err != migrate.ErrNilVersion {
 			log.Fatal(err)
 		}
 		fmt.Printf("Version: %d, Dirty: %v\n", v, dirty)

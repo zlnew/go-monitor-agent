@@ -31,7 +31,7 @@ func NewHub(log logger.Logger) *Hub {
 		rooms:      make(map[string]map[*Client]bool),
 		register:   make(chan *Subscription),
 		unregister: make(chan *Subscription),
-		events:     make(chan *ServerEvent),
+		events:     make(chan *ServerEvent, 100),
 		log:        log,
 	}
 }
@@ -82,9 +82,15 @@ func (h *Hub) Run() {
 }
 
 func (h *Hub) Emit(channel, event string, payload any) {
-	h.events <- &ServerEvent{
+	evt := &ServerEvent{
 		Channel: channel,
 		Event:   event,
 		Payload: payload,
+	}
+
+	select {
+	case h.events <- evt:
+	default:
+		h.log.Warn("webSocket Hub busy/full, dropping event", "channel", channel)
 	}
 }

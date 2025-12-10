@@ -1,14 +1,8 @@
 bin*
 
 .env
-.env.production
-
-app.db
-app.db-shm
-app.db-wal
-horizonx.db
-horizonx.db-shm
-horizonx.db-wal
+.env.server.prod
+.env.agent.prod
 
 AGENTS.md
 GEMINI.md
