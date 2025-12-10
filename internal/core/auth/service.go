@@ -5,7 +5,6 @@ import (
 	"context"
 	"time"
 
-	"horizonx-server/internal/config"
 	"horizonx-server/internal/domain"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -13,14 +12,16 @@ import (
 )
 
 type service struct {
-	repo domain.UserRepository
-	cfg  *config.Config
+	repo      domain.UserRepository
+	jwtSecret string
+	jwtExpiry time.Duration
 }
 
-func NewService(repo domain.UserRepository, cfg *config.Config) domain.AuthService {
+func NewService(repo domain.UserRepository, jwtSecret string, jwtExpiry time.Duration) domain.AuthService {
 	return &service{
-		repo: repo,
-		cfg:  cfg,
+		repo:      repo,
+		jwtSecret: jwtSecret,
+		jwtExpiry: jwtExpiry,
 	}
 }
 
@@ -38,11 +39,11 @@ func (s *service) Login(ctx context.Context, req domain.LoginRequest) (*domain.A
 	claims := jwt.MapClaims{
 		"sub":   user.ID,
 		"email": user.Email,
-		"exp":   time.Now().Add(s.cfg.JWTExpiry).Unix(),
+		"exp":   time.Now().Add(s.jwtExpiry).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(s.cfg.JWTSecret))
+	tokenString, err := token.SignedString([]byte(s.jwtSecret))
 	if err != nil {
 		return nil, err
 	}

@@ -45,16 +45,16 @@ func main() {
 
 	metricsStore := snapshot.NewMetricsStore()
 
-	metricsService := metrics.NewService(metricsRepo, metricsStore, hub)
+	metricsService := metrics.NewService(metricsRepo, metricsStore, hub, log)
 	serverService := server.NewService(serverRepo)
-	authService := auth.NewService(userRepo, cfg)
-	userService := user.NewService(userRepo, cfg)
+	authService := auth.NewService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
+	userService := user.NewService(userRepo)
 
 	wsHandler := websocket.NewHandler(hub, cfg, log)
 	metricsHandler := rest.NewMetricsHandler(metricsService)
 	serverHandler := rest.NewServerHandler(serverService)
 	authHandler := rest.NewAuthHandler(authService, cfg)
-	userHandler := rest.NewUserHandler(userService, cfg)
+	userHandler := rest.NewUserHandler(userService)
 
 	router := rest.NewRouter(cfg, &rest.RouterDeps{
 		WS:      wsHandler,

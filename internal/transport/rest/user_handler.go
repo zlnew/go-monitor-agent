@@ -6,20 +6,15 @@ import (
 	"net/http"
 	"strconv"
 
-	"horizonx-server/internal/config"
 	"horizonx-server/internal/domain"
 )
 
 type UserHandler struct {
 	svc domain.UserService
-	cfg *config.Config
 }
 
-func NewUserHandler(svc domain.UserService, cfg *config.Config) *UserHandler {
-	return &UserHandler{
-		svc: svc,
-		cfg: cfg,
-	}
+func NewUserHandler(svc domain.UserService) *UserHandler {
+	return &UserHandler{svc: svc}
 }
 
 func (h *UserHandler) Index(w http.ResponseWriter, r *http.Request) {

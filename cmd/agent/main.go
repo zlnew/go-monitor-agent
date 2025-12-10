@@ -41,12 +41,8 @@ func main() {
 	log.Println("HorizonX Agent: Starting spy mission...")
 	log.Printf("Target Server: %s", serverURL)
 
-	logCfg := &config.Config{
-		LogLevel:  os.Getenv("LOG_LEVEL"),
-		LogFormat: os.Getenv("LOG_FORMAT"),
-	}
-
-	appLog := logger.New(logCfg)
+	cfg := config.Load()
+	appLog := logger.New(cfg)
 	sampler := metrics.NewSampler(appLog)
 	client := &http.Client{Timeout: 5 * time.Second}
 
@@ -58,7 +54,7 @@ func main() {
 		}
 	}
 
-	scheduler := metrics.NewScheduler(2*time.Second, appLog, sampler.Collect, dataSink)
+	scheduler := metrics.NewScheduler(cfg.Interval, appLog, sampler.Collect, dataSink)
 	scheduler.Start(ctx)
 
 	log.Println("Agent stopped gracefully.")

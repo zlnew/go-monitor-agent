@@ -3,10 +3,10 @@ package metrics
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"horizonx-server/internal/domain"
+	"horizonx-server/internal/logger"
 	"horizonx-server/internal/storage/snapshot"
 	"horizonx-server/internal/transport/websocket"
 )
@@ -15,14 +15,16 @@ type Service struct {
 	repo      domain.MetricsRepository
 	hub       *websocket.Hub
 	snapshot  *snapshot.MetricsStore
+	log       logger.Logger
 	saveQueue chan domain.Metrics
 }
 
-func NewService(repo domain.MetricsRepository, snapshot *snapshot.MetricsStore, hub *websocket.Hub) *Service {
+func NewService(repo domain.MetricsRepository, snapshot *snapshot.MetricsStore, hub *websocket.Hub, log logger.Logger) domain.MetricsService {
 	s := &Service{
 		repo:      repo,
 		hub:       hub,
 		snapshot:  snapshot,
+		log:       log,
 		saveQueue: make(chan domain.Metrics, 1000),
 	}
 
@@ -33,12 +35,15 @@ func NewService(repo domain.MetricsRepository, snapshot *snapshot.MetricsStore, 
 func (s *Service) Ingest(ctx context.Context, m domain.Metrics) error {
 	s.snapshot.Set(m.ServerID, m)
 
-	s.hub.Emit(fmt.Sprintf("server:%d:metrics", m.ServerID), "metrics.updated", m)
+	channel := fmt.Sprintf("server:%d:metrics", m.ServerID)
+	event := "metrics.updated"
+
+	s.hub.Emit(channel, event, m)
 
 	select {
 	case s.saveQueue <- m:
 	default:
-		log.Println("WARNING: Metric queue full! Dropping data.")
+		s.log.Warn("metrics queue full! dropping data.")
 	}
 
 	return nil
@@ -52,7 +57,7 @@ func (s *Service) worker() {
 	flush := func() {
 		if len(buffer) > 0 {
 			if err := s.repo.BulkInsert(context.Background(), buffer); err != nil {
-				log.Printf("Failed to flush metrics to DB: %v", err)
+				s.log.Error("failed to flush metrics to DB", err)
 			}
 			buffer = buffer[:0]
 		}

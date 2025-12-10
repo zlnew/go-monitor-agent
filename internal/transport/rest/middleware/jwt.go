@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"horizonx-server/internal/config"
-	"horizonx-server/internal/core/auth"
+	"horizonx-server/pkg"
 )
 
 type contextKey string
@@ -21,7 +21,7 @@ func JWT(cfg *config.Config) func(http.Handler) http.Handler {
 				return
 			}
 
-			claims, err := auth.ValidateToken(cookie.Value, cfg.JWTSecret)
+			claims, err := pkg.ValidateToken(cookie.Value, cfg.JWTSecret)
 			if err != nil {
 				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 				return

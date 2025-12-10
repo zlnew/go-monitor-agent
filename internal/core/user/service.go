@@ -5,7 +5,6 @@ import (
 	"context"
 	"strconv"
 
-	"horizonx-server/internal/config"
 	"horizonx-server/internal/domain"
 
 	"golang.org/x/crypto/bcrypt"
@@ -13,14 +12,10 @@ import (
 
 type service struct {
 	repo domain.UserRepository
-	cfg  *config.Config
 }
 
-func NewService(repo domain.UserRepository, cfg *config.Config) domain.UserService {
-	return &service{
-		repo: repo,
-		cfg:  cfg,
-	}
+func NewService(repo domain.UserRepository) domain.UserService {
+	return &service{repo: repo}
 }
 
 func (s *service) Get(ctx context.Context, opts domain.ListOptions) (*domain.ListResult[*domain.User], error) {

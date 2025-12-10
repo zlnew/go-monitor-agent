@@ -19,7 +19,7 @@ func NewService(repo domain.ServerRepository) domain.ServerService {
 
 func (s *Service) Register(ctx context.Context, name, ip string) (*domain.Server, string, error) {
 	if name == "" {
-		return nil, "", errors.New("nama server gak boleh kosong")
+		return nil, "", errors.New("server name cannot be empty")
 	}
 
 	token, err := pkg.GenerateToken()

@@ -5,8 +5,8 @@ import (
 	"slices"
 
 	"horizonx-server/internal/config"
-	"horizonx-server/internal/core/auth"
 	"horizonx-server/internal/logger"
+	"horizonx-server/pkg"
 
 	"github.com/gorilla/websocket"
 )
@@ -57,7 +57,7 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := auth.ValidateToken(tokenString, h.cfg.JWTSecret)
+	claims, err := pkg.ValidateToken(tokenString, h.cfg.JWTSecret)
 	if err != nil {
 		h.log.Warn("websocket jwt verification failed", "error", err)
 		http.Error(w, "invalid token", http.StatusUnauthorized)
