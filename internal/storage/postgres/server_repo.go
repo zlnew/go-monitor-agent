@@ -64,7 +64,7 @@ func (r *ServerRepository) Create(ctx context.Context, s *domain.Server) error {
 		&s.UpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("gagal create server: %w", err)
+		return fmt.Errorf("failed to create server: %w", err)
 	}
 
 	return nil

@@ -43,8 +43,8 @@ func NewRouter(cfg *config.Config, deps *RouterDeps) http.Handler {
 
 	mux.Handle("POST /auth/logout", userStack.Then(http.HandlerFunc(deps.Auth.Logout)))
 
-	mux.Handle("GET /api/servers", userStack.Then(http.HandlerFunc(deps.Server.Index)))
-	mux.Handle("POST /api/servers", userStack.Then(http.HandlerFunc(deps.Server.Store)))
+	mux.Handle("GET /servers", userStack.Then(http.HandlerFunc(deps.Server.Index)))
+	mux.Handle("POST /servers", userStack.Then(http.HandlerFunc(deps.Server.Store)))
 
 	mux.Handle("GET /users", userStack.Then(http.HandlerFunc(deps.User.Index)))
 	mux.Handle("POST /users", userStack.Then(http.HandlerFunc(deps.User.Store)))
