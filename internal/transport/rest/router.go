@@ -11,11 +11,10 @@ import (
 )
 
 type RouterDeps struct {
-	WS      *websocket.Handler
-	Server  *ServerHandler
-	Metrics *MetricsHandler
-	Auth    *AuthHandler
-	User    *UserHandler
+	WS     *websocket.Handler
+	Server *ServerHandler
+	Auth   *AuthHandler
+	User   *UserHandler
 
 	ServerRepo domain.ServerRepository
 }
@@ -30,16 +29,12 @@ func NewRouter(cfg *config.Config, deps *RouterDeps) http.Handler {
 	userStack.Use(middleware.JWT(cfg))
 	userStack.Use(middleware.CSRF(cfg))
 
-	agentStack := middleware.AgentAuth(deps.ServerRepo)
-
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
 	})
 
 	mux.HandleFunc("GET /ws", deps.WS.Serve)
 	mux.HandleFunc("POST /auth/login", deps.Auth.Login)
-
-	mux.Handle("POST /metrics/report", agentStack(http.HandlerFunc(deps.Metrics.Report)))
 
 	mux.Handle("POST /auth/logout", userStack.Then(http.HandlerFunc(deps.Auth.Logout)))
 

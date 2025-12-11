@@ -13,7 +13,7 @@ const (
 	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
-	maxMessageSize = 512
+	maxMessageSize = 8192
 )
 
 type Client struct {
@@ -75,6 +75,17 @@ func (c *Client) readPump() {
 		if err := json.Unmarshal(message, &msg); err != nil {
 			c.log.Error("invalid json message", "error", err)
 			continue
+		}
+
+		if c.Type == TypeAgent {
+			if msg.Type == "event" {
+				c.hub.events <- &ServerEvent{
+					Channel: msg.Channel,
+					Event:   msg.Event,
+					Payload: msg.Payload,
+				}
+				continue
+			}
 		}
 
 		switch msg.Type {

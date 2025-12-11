@@ -59,7 +59,13 @@ func (h *Hub) Run() {
 		case client := <-h.register:
 			if client.Type == TypeAgent {
 				h.agents[client.ID] = client
+				h.InitializeAgent(client.ID, client)
+
 				h.log.Info("agent online", "server_id", client.ID)
+			}
+
+			if client.Type == TypeUser {
+				h.log.Info("user online", "user_id", client.ID)
 			}
 
 		case client := <-h.unregister:
@@ -133,6 +139,28 @@ func (h *Hub) Run() {
 			}
 		}
 	}
+}
+
+func (h *Hub) InitializeAgent(serverID string, client *Client) {
+	payload := map[string]any{
+		"type":    "command",
+		"command": "init",
+		"payload": map[string]string{
+			"server_id": serverID,
+		},
+	}
+	bytes, _ := json.Marshal(payload)
+
+	select {
+	case client.send <- bytes:
+		h.log.Info("sent init command to agent", "server_id", serverID)
+	default:
+		h.log.Info("agent send buffer full during init", "server_id", serverID)
+	}
+}
+
+func (h *Hub) Events() <-chan *ServerEvent {
+	return h.events
 }
 
 func (h *Hub) Emit(channel, event string, payload any) {

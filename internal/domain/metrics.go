@@ -81,7 +81,3 @@ type NetworkMetric struct {
 type MetricsRepository interface {
 	BulkInsert(ctx context.Context, metrics []Metrics) error
 }
-
-type MetricsService interface {
-	Ingest(ctx context.Context, m Metrics) error
-}

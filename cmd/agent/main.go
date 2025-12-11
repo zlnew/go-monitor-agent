@@ -1,19 +1,15 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/joho/godotenv"
 
+	"horizonx-server/internal/agent"
 	"horizonx-server/internal/config"
 	"horizonx-server/internal/core/metrics"
 	"horizonx-server/internal/domain"
@@ -27,7 +23,7 @@ func main() {
 
 	serverURL := os.Getenv("HORIZONX_SERVER_URL")
 	if serverURL == "" {
-		serverURL = "http://localhost:3000/api/metrics/report"
+		serverURL = "ws://localhost:3000/ws"
 	}
 
 	agentToken := os.Getenv("HORIZONX_AGENT_TOKEN")
@@ -38,51 +34,21 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	log.Println("HorizonX Agent: Starting spy mission...")
-	log.Printf("Target Server: %s", serverURL)
-
 	cfg := config.Load()
 	appLog := logger.New(cfg)
-	sampler := metrics.NewSampler(appLog)
-	client := &http.Client{Timeout: 5 * time.Second}
 
-	dataSink := func(m domain.Metrics) {
-		if err := sendMetrics(client, serverURL, agentToken, m); err != nil {
-			appLog.Error("agent", "delivery_failed", err.Error())
-		} else {
-			appLog.Debug("agent", "status", "delivered")
-		}
+	appLog.Info("HorizonX Agent: Starting spy mission...", "server_url", serverURL)
+
+	agentClient := agent.NewAgent(serverURL, agentToken, appLog)
+
+	metricsSampler := metrics.NewSampler(appLog)
+	metricsSink := func(m domain.Metrics) { agentClient.SendMetric(m) }
+	metricsScheduler := metrics.NewScheduler(cfg.Interval, appLog, metricsSampler.Collect, metricsSink)
+	go metricsScheduler.Start(ctx)
+
+	if err := agentClient.Run(ctx); err != nil && err != context.Canceled {
+		appLog.Error("agent run failed unexpectedly", "error", err)
 	}
 
-	scheduler := metrics.NewScheduler(cfg.Interval, appLog, sampler.Collect, dataSink)
-	scheduler.Start(ctx)
-
-	log.Println("Agent stopped gracefully.")
-}
-
-func sendMetrics(client *http.Client, url, token string, data domain.Metrics) error {
-	payload, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("json marshal: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
-	if err != nil {
-		return fmt.Errorf("create req: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("network: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		return fmt.Errorf("server rejected: %d", resp.StatusCode)
-	}
-
-	return nil
+	appLog.Info("Agent stopped gracefully.")
 }

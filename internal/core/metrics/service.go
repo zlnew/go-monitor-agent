@@ -2,7 +2,9 @@ package metrics
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"horizonx-server/internal/domain"
@@ -19,7 +21,7 @@ type Service struct {
 	saveQueue chan domain.Metrics
 }
 
-func NewService(repo domain.MetricsRepository, snapshot *snapshot.MetricsStore, hub *websocket.Hub, log logger.Logger) domain.MetricsService {
+func NewService(repo domain.MetricsRepository, snapshot *snapshot.MetricsStore, hub *websocket.Hub, log logger.Logger) *Service {
 	s := &Service{
 		repo:      repo,
 		hub:       hub,
@@ -29,28 +31,9 @@ func NewService(repo domain.MetricsRepository, snapshot *snapshot.MetricsStore, 
 	}
 
 	go s.worker()
+	go s.startEventProcessor()
+
 	return s
-}
-
-func (s *Service) Ingest(ctx context.Context, m domain.Metrics) error {
-	if m.RecordedAt.IsZero() {
-		m.RecordedAt = time.Now().UTC()
-	}
-
-	s.snapshot.Set(m.ServerID, m)
-
-	channel := fmt.Sprintf("server:%d:metrics", m.ServerID)
-	event := "metrics.updated"
-
-	s.hub.Emit(channel, event, m)
-
-	select {
-	case s.saveQueue <- m:
-	default:
-		s.log.Warn("metrics queue full! dropping data.")
-	}
-
-	return nil
 }
 
 func (s *Service) worker() {
@@ -78,4 +61,58 @@ func (s *Service) worker() {
 			flush()
 		}
 	}
+}
+
+func (s *Service) startEventProcessor() {
+	s.log.Info("metrics event processor started, listening to hub events")
+
+	for event := range s.hub.Events() {
+		if !strings.HasSuffix(event.Channel, ":metrics") {
+			continue
+		}
+
+		if event.Event != "report" {
+			s.log.Info("ignoring non-report metrics event", "event", event.Event)
+			continue
+		}
+
+		rawJSON, ok := event.Payload.(json.RawMessage)
+		if !ok {
+			s.log.Error("metric payload is not json.RawMessage", "type", fmt.Sprintf("%T", event.Payload))
+			continue
+		}
+
+		rawPayload := []byte(rawJSON)
+
+		var m domain.Metrics
+		if err := json.Unmarshal(rawPayload, &m); err != nil {
+			s.log.Error("failed to unmarshal domain.Metrics payload", "error", err)
+			continue
+		}
+
+		if err := s.ingest(m); err != nil {
+			s.log.Error("failed to process ingested metric", "error", err)
+		}
+	}
+}
+
+func (s *Service) ingest(m domain.Metrics) error {
+	if m.RecordedAt.IsZero() {
+		m.RecordedAt = time.Now().UTC()
+	}
+
+	s.snapshot.Set(m.ServerID, m)
+
+	channel := fmt.Sprintf("server:%d:metrics", m.ServerID)
+	event := "metrics.updated"
+
+	s.hub.Emit(channel, event, m)
+
+	select {
+	case s.saveQueue <- m:
+	default:
+		s.log.Warn("metrics queue full! dropping data.")
+	}
+
+	return nil
 }
