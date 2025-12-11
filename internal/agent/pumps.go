@@ -32,10 +32,10 @@ func (a *Agent) readPump(ctx context.Context) error {
 			_, rawMessage, err := a.conn.ReadMessage()
 			if err != nil {
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					a.log.Error("websocket read error (unexpected close)", "error", err)
+					a.log.Error("ws read error (unexpected close)", "error", err)
 					return err
 				} else {
-					a.log.Info("websocket read finished (normal closure or ping/pong timeout)")
+					a.log.Info("ws read finished (normal closure or ping/pong timeout)")
 					return nil
 				}
 			}
@@ -107,7 +107,7 @@ func (a *Agent) writePump(ctx context.Context) error {
 			}
 
 			channel := domain.GetServerMetricsChannel(metric.ServerID)
-			event := domain.EventMetricsReport
+			event := domain.EventServerMetricsReport
 			msg := struct {
 				Type    string `json:"type"`
 				Channel string `json:"channel"`

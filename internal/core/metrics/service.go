@@ -71,7 +71,7 @@ func (s *Service) startEventProcessor() {
 			continue
 		}
 
-		if event.Event != domain.EventMetricsReport {
+		if event.Event != domain.EventServerMetricsReport {
 			s.log.Info("ignoring non-report metrics event", "event", event.Event)
 			continue
 		}
@@ -104,7 +104,7 @@ func (s *Service) ingest(m domain.Metrics) error {
 	s.snapshot.Set(m.ServerID, m)
 
 	channel := domain.GetServerMetricsChannel(m.ServerID)
-	s.hub.Emit(channel, domain.EventMetricsReceived, m)
+	s.hub.Emit(channel, domain.EventServerMetricsReceived, m)
 
 	select {
 	case s.saveQueue <- m:

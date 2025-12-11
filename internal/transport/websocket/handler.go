@@ -32,7 +32,7 @@ func NewHandler(hub *Hub, cfg *config.Config, log logger.Logger, serverService d
 
 			allowed := slices.Contains(cfg.AllowedOrigins, origin)
 			if !allowed {
-				log.Warn("ws origin rejected", "origin", origin)
+				log.Warn("ws auth: origin rejected", "origin", origin)
 				return false
 			}
 
@@ -95,14 +95,14 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if clientID == "" {
-		h.log.Warn("ws unauthorized: no valid credentials")
+		h.log.Warn("ws auth: no valid credentials")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		h.log.Error("ws upgrade failed", "error", err)
+		h.log.Error("ws: upgrade failed", "error", err)
 		return
 	}
 
@@ -113,5 +113,5 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 	go client.writePump()
 	go client.readPump()
 
-	h.log.Info("ws client connected", "remote_addr", conn.RemoteAddr())
+	h.log.Info("ws: client connected", "remote_addr", conn.RemoteAddr())
 }

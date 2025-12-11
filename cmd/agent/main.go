@@ -21,19 +21,19 @@ func mainMetricsScheduler(agentClient *agent.Agent, cfg *config.Config, appLog l
 	metricsSink := func(m domain.Metrics) { agentClient.SendMetric(m) }
 
 	for sessionCtx := range agentClient.GetSessionContextChannel() {
-		appLog.Info("Starting metrics scheduler for new session")
+		appLog.Info("starting metrics scheduler for new session")
 		metricsScheduler := metrics.NewScheduler(cfg.Interval, appLog, metricsSampler.Collect, metricsSink)
 
 		metricsScheduler.Start(sessionCtx)
 
-		appLog.Info("Metrics scheduler stopped as session context was cancelled")
+		appLog.Info("metrics scheduler stopped as session context was cancelled")
 	}
-	appLog.Info("Metrics scheduler controller shutting down.")
+	appLog.Info("metrics scheduler controller shutting down.")
 }
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("Info: No .env file found, relying on system environment variables")
+		log.Println("INFO: No .env file found, relying on system environment variables")
 	}
 
 	serverURL := os.Getenv("HORIZONX_SERVER_URL")
@@ -52,7 +52,7 @@ func main() {
 	cfg := config.Load()
 	appLog := logger.New(cfg)
 
-	appLog.Info("HorizonX Agent: Starting spy mission...", "server_url", serverURL)
+	appLog.Info("HorizonX Agent: starting spy mission...", "server_url", serverURL)
 
 	agentClient := agent.NewAgent(serverURL, agentToken, appLog)
 
@@ -62,5 +62,5 @@ func main() {
 		appLog.Error("agent run failed unexpectedly", "error", err)
 	}
 
-	appLog.Info("Agent stopped gracefully.")
+	appLog.Info("agent stopped gracefully.")
 }

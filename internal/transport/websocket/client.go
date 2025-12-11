@@ -66,26 +66,38 @@ func (c *Client) readPump() {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				c.log.Warn("client disconnected unexpected", "error", err)
+				c.log.Warn("ws: client disconnected unexpected", "error", err)
 			}
 			break
 		}
 
-		var msg ClientMessage
-		if err := json.Unmarshal(message, &msg); err != nil {
-			c.log.Error("invalid json message", "error", err)
+		if c.Type == TypeAgent {
+			var agentMsg ClientMessage
+			if err := json.Unmarshal(message, &agentMsg); err != nil {
+				c.log.Error("ws: invalid json message from agent", "error", err)
+				continue
+			}
+
+			switch agentMsg.Type {
+			case "event":
+				c.hub.events <- &ServerEvent{
+					Channel: agentMsg.Channel,
+					Event:   agentMsg.Event,
+					Payload: agentMsg.Payload,
+				}
+			case "ready":
+				c.hub.updateAgentServerStatus(c.ID, true)
+				c.log.Info("ws: agent signalled ready, status updated and broadcasted", "server_id", c.ID)
+			default:
+				c.log.Warn("ws: unknown agent message type", "type", agentMsg.Type)
+			}
 			continue
 		}
 
-		if c.Type == TypeAgent {
-			if msg.Type == "event" {
-				c.hub.events <- &ServerEvent{
-					Channel: msg.Channel,
-					Event:   msg.Event,
-					Payload: msg.Payload,
-				}
-				continue
-			}
+		var msg ClientMessage
+		if err := json.Unmarshal(message, &msg); err != nil {
+			c.log.Error("ws: invalid client message", "error", err)
+			continue
 		}
 
 		switch msg.Type {
@@ -94,7 +106,7 @@ func (c *Client) readPump() {
 		case "unsubscribe":
 			c.hub.unsubscribe <- &Subscription{client: c, channel: msg.Channel}
 		default:
-			c.log.Warn("unknown message type", "type", msg.Type)
+			c.log.Warn("ws: unknown client message type", "type", msg.Type)
 		}
 	}
 }

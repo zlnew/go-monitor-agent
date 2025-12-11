@@ -3,6 +3,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -65,12 +66,12 @@ func (a *Agent) Run(ctx context.Context) error {
 		default:
 		}
 
-		a.log.Info("Attempting to start agent...", "attempt", attempt+1)
+		a.log.Info("attempting to start agent...", "attempt", attempt+1)
 
 		err := a.start(ctx)
 
 		if err != nil && errors.Is(err, ErrUnauthorized) {
-			a.log.Error("FATAL: Unauthorized token. Exiting.", "error", err)
+			a.log.Error("FATAL: unauthorized token. exiting.", "error", err)
 			return err
 		}
 
@@ -104,11 +105,11 @@ func (a *Agent) start(ctx context.Context) error {
 		if resp != nil && resp.StatusCode == http.StatusUnauthorized {
 			return ErrUnauthorized
 		}
-		return fmt.Errorf("websocket dial failed: %w", err)
+		return fmt.Errorf("ws dial failed: %w", err)
 	}
 
 	a.conn = conn
-	a.log.Info("websocket connected to server", "url", a.serverURL)
+	a.log.Info("ws connected to server", "url", a.serverURL)
 
 	sessionCtx, cancel := context.WithCancel(ctx)
 
@@ -118,7 +119,7 @@ func (a *Agent) start(ctx context.Context) error {
 		cancel()
 		a.conn.Close()
 		a.serverID = 0
-		a.log.Info("websocket connection closed and resources cleaned up")
+		a.log.Info("ws connection closed and resources cleaned up")
 	}()
 
 	go func() { pumpDone <- a.readPump(sessionCtx) }()
@@ -130,8 +131,13 @@ func (a *Agent) start(ctx context.Context) error {
 		return ctx.Err()
 	}
 
-	a.log.Info("waiting for server initialization command...")
+	a.log.Info("waiting for server init command...")
 	if err := a.waitForInit(sessionCtx); err != nil {
+		return err
+	}
+
+	if err := a.sendReadySignal(); err != nil {
+		a.log.Error("failed to send ready signal, session stopping", "error", err)
 		return err
 	}
 
@@ -170,6 +176,29 @@ func (a *Agent) waitForInit(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func (a *Agent) sendReadySignal() error {
+	readyMsg := struct {
+		Type string `json:"type"`
+	}{
+		Type: "ready",
+	}
+
+	a.conn.SetWriteDeadline(time.Now().Add(writeWait))
+
+	bytes, err := json.Marshal(readyMsg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal ready signal: %w", err)
+	}
+
+	if err := a.conn.WriteMessage(websocket.TextMessage, bytes); err != nil {
+		return fmt.Errorf("failed to write ready signal: %w", err)
+	}
+
+	a.log.Info("agent sent READY signal to server. now fully online.")
+
+	return nil
 }
 
 func (a *Agent) SendMetric(m domain.Metrics) {

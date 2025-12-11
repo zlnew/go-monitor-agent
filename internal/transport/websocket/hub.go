@@ -64,29 +64,22 @@ func (h *Hub) Run() {
 			if client.Type == TypeAgent {
 				h.agents[client.ID] = client
 				h.initAgent(client.ID, client)
-				h.updateAgentStatus(client.ID, true)
-				h.log.Info("agent online", "server_id", client.ID)
-			}
-
-			if client.Type == TypeUser {
-				h.log.Info("user online", "user_id", client.ID)
 			}
 
 		case client := <-h.unregister:
 			if client.Type == TypeAgent {
 				if _, ok := h.agents[client.ID]; ok {
 					delete(h.agents, client.ID)
-					h.updateAgentStatus(client.ID, false)
-					h.log.Info("agent offline", "server_id", client.ID)
+					h.log.Info("ws: agent offline", "server_id", client.ID)
 				}
 			}
+
 			for roomName, clients := range h.rooms {
 				if _, ok := clients[client]; ok {
 					delete(clients, client)
 					if len(clients) == 0 {
 						delete(h.rooms, roomName)
 					}
-					h.log.Info("user offline", "user_id", client.ID)
 				}
 			}
 
@@ -95,7 +88,7 @@ func (h *Hub) Run() {
 				h.rooms[sub.channel] = make(map[*Client]bool)
 			}
 			h.rooms[sub.channel][sub.client] = true
-			h.log.Debug("client subscribed", "channel", sub.channel)
+			h.log.Debug("ws: client subscribed", "channel", sub.channel)
 
 		case sub := <-h.unsubscribe:
 			if clients, ok := h.rooms[sub.channel]; ok {
