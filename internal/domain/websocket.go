@@ -1,17 +1,51 @@
 package domain
 
-import "fmt"
-
-const (
-	ChannelServerStatus          = "server_status"
-	ChannelServerMetricsTemplate = "server:%d:metrics"
+import (
+	"encoding/json"
+	"fmt"
 )
 
 const (
-	EventServerStatusUpdated   = "server_status_updated"
-	EventServerMetricsReport   = "server_metrics_report"
-	EventServerMetricsReceived = "server_metrics_received"
+	WsClientUser  = "USER"
+	WsClientAgent = "AGENT"
 )
+
+const (
+	WsChannelServerStatus          = "server_status"
+	WsChannelServerMetricsTemplate = "server:%d:metrics"
+)
+
+const (
+	WsEventAgentReady            = "agent_ready"
+	WsEventServerStatusUpdated   = "server_status_updated"
+	WsEventServerMetricsReport   = "server_metrics_report"
+	WsEventServerMetricsReceived = "server_metrics_received"
+)
+
+const (
+	WsAgentReport = "agent_report"
+	WsSubscribe   = "subscribe"
+	WsUnsubscribe = "unsubscribe"
+)
+
+type WsClientMessage struct {
+	Type    string          `json:"type"`
+	Channel string          `json:"channel,omitempty"`
+	Event   string          `json:"event,omitempty"`
+	Payload json.RawMessage `json:"payload,omitempty"`
+}
+
+type WsInternalEvent struct {
+	Channel string `json:"channel"`
+	Event   string `json:"event"`
+	Payload any    `json:"payload"`
+}
+
+type WsAgentCommand struct {
+	TargetServerID string `json:"target_server_id"`
+	CommandType    string `json:"command_type"`
+	Payload        any    `json:"payload,omitempty"`
+}
 
 type ServerStatusPayload struct {
 	ServerID int64 `json:"server_id"`
@@ -19,5 +53,5 @@ type ServerStatusPayload struct {
 }
 
 func GetServerMetricsChannel(serverID int64) string {
-	return fmt.Sprintf(ChannelServerMetricsTemplate, serverID)
+	return fmt.Sprintf(WsChannelServerMetricsTemplate, serverID)
 }

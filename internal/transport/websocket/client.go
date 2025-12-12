@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"horizonx-server/internal/domain"
 	"horizonx-server/internal/logger"
 
 	"github.com/gorilla/websocket"
@@ -25,18 +26,6 @@ type Client struct {
 
 	ID   string
 	Type string
-}
-
-const (
-	TypeUser  = "USER"
-	TypeAgent = "AGENT"
-)
-
-type ClientMessage struct {
-	Type    string          `json:"type"`
-	Channel string          `json:"channel,omitempty"`
-	Event   string          `json:"event,omitempty"`
-	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
 func NewClient(hub *Hub, conn *websocket.Conn, log logger.Logger, clientID, clientType string) *Client {
@@ -74,32 +63,36 @@ func (c *Client) readPump() {
 			break
 		}
 
-		var msg ClientMessage
+		var msg domain.WsClientMessage
 		if err := json.Unmarshal(message, &msg); err != nil {
 			c.log.Error("ws: invalid client message", "error", err)
 			continue
 		}
 
 		switch msg.Type {
-		case "agent_ping":
-		case "agent_ready":
-			c.hub.agentReady <- c
-		case "agent_event":
-			c.hub.events <- &ServerEvent{
+		case domain.WsAgentReport:
+			if msg.Event == domain.WsEventAgentReady {
+				c.hub.agentReady <- c
+				continue
+			}
+			c.hub.events <- &domain.WsInternalEvent{
 				Channel: msg.Channel,
 				Event:   msg.Event,
 				Payload: msg.Payload,
 			}
-		case "subscribe":
+
+		case domain.WsSubscribe:
 			c.hub.subscribe <- &Subscription{
 				client:  c,
 				channel: msg.Channel,
 			}
-		case "unsubscribe":
+
+		case domain.WsUnsubscribe:
 			c.hub.unsubscribe <- &Subscription{
 				client:  c,
 				channel: msg.Channel,
 			}
+
 		default:
 			c.log.Debug("ws: unknown client message type", "type", msg.Type)
 		}

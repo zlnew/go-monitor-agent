@@ -62,7 +62,7 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			if sub, ok := claims["sub"]; ok && sub != nil {
 				clientID = fmt.Sprintf("%v", sub)
-				clientType = TypeUser
+				clientType = domain.WsClientUser
 				h.log.Debug("ws auth: user authenticated", "id", clientID)
 			} else {
 				h.log.Warn("ws auth: sub claim missing or nil")
@@ -87,7 +87,7 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 			server, err := h.serverService.AuthorizeAgent(r.Context(), token)
 			if err == nil {
 				clientID = fmt.Sprintf("%d", server.ID)
-				clientType = TypeAgent
+				clientType = domain.WsClientAgent
 				h.log.Debug("ws auth: agent authenticated", "server_id", clientID)
 			} else {
 				h.log.Warn("ws auth: invalid agent token")

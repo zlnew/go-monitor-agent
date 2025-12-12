@@ -9,14 +9,15 @@ import (
 )
 
 func (h *Hub) initAgent(serverID string, client *Client) {
-	payload := map[string]any{
-		"type":    "command",
-		"command": "init",
-		"payload": map[string]string{
-			"server_id": serverID,
-		},
+	payload := &domain.WsAgentCommand{
+		TargetServerID: serverID,
+		CommandType:    "init",
 	}
-	message, _ := json.Marshal(payload)
+
+	message, err := json.Marshal(payload)
+	if err != nil {
+		h.log.Error("ws: failed to marshal agent init command", "server_id", serverID)
+	}
 
 	select {
 	case client.send <- message:
@@ -38,7 +39,7 @@ func (h *Hub) updateAgentServerStatus(serverID string, isOnline bool) {
 		h.log.Error("ws: failed to update agent server status", "error", err, "server_id", parsedID, "online", isOnline)
 	}
 
-	h.Broadcast(domain.ChannelServerStatus, domain.EventServerStatusUpdated, domain.ServerStatusPayload{
+	h.Broadcast(domain.WsChannelServerStatus, domain.WsEventServerStatusUpdated, domain.ServerStatusPayload{
 		ServerID: parsedID,
 		IsOnline: isOnline,
 	})

@@ -20,8 +20,8 @@ type Hub struct {
 	unsubscribe chan *Subscription
 	agentReady  chan *Client
 
-	events   chan *ServerEvent
-	commands chan *CommandEvent
+	events   chan *domain.WsInternalEvent
+	commands chan *domain.WsAgentCommand
 
 	serverService  domain.ServerService
 	metricsService domain.MetricsService
@@ -32,18 +32,6 @@ type Hub struct {
 type Subscription struct {
 	client  *Client
 	channel string
-}
-
-type ServerEvent struct {
-	Channel string `json:"channel"`
-	Event   string `json:"event"`
-	Payload any    `json:"payload"`
-}
-
-type CommandEvent struct {
-	TargetServerID string `json:"target_server_id"`
-	CommandType    string `json:"command_type"`
-	Payload        any    `json:"payload"`
 }
 
 func NewHub(log logger.Logger, serverService domain.ServerService, metricsService domain.MetricsService) *Hub {
@@ -58,8 +46,8 @@ func NewHub(log logger.Logger, serverService domain.ServerService, metricsServic
 		unsubscribe: make(chan *Subscription),
 		agentReady:  make(chan *Client),
 
-		events:   make(chan *ServerEvent, 100),
-		commands: make(chan *CommandEvent, 100),
+		events:   make(chan *domain.WsInternalEvent, 100),
+		commands: make(chan *domain.WsAgentCommand, 100),
 
 		serverService:  serverService,
 		metricsService: metricsService,
@@ -74,7 +62,7 @@ func (h *Hub) Run() {
 			h.clients[client] = true
 			h.log.Info("ws: client registered", "id", client.ID, "type", client.Type, "total_clients", len(h.clients))
 
-			if client.Type == TypeAgent {
+			if client.Type == domain.WsClientAgent {
 				h.agents[client.ID] = client
 				h.initAgent(client.ID, client)
 				h.log.Info("ws: agent registered", "server_id", client.ID, "total_agents", len(h.agents))
@@ -86,7 +74,7 @@ func (h *Hub) Run() {
 				close(client.send)
 				h.log.Info("ws: client unregistered", "id", client.ID, "type", client.Type, "total_clients", len(h.clients))
 
-				if client.Type == TypeAgent {
+				if client.Type == domain.WsClientUser {
 					if _, agentOk := h.agents[client.ID]; agentOk {
 						delete(h.agents, client.ID)
 						go h.updateAgentServerStatus(client.ID, false)
@@ -133,7 +121,7 @@ func (h *Hub) Run() {
 			}
 
 		case client := <-h.agentReady:
-			if client.Type == TypeAgent {
+			if client.Type == domain.WsClientAgent {
 				h.log.Info("ws: agent is now fully operational", "server_id", client.ID)
 				go h.updateAgentServerStatus(client.ID, true)
 			}
@@ -147,8 +135,8 @@ func (h *Hub) Run() {
 	}
 }
 
-func (h *Hub) handleEvent(event *ServerEvent) {
-	if h.metricsService != nil && strings.HasSuffix(event.Channel, ":metrics") && event.Event == domain.EventServerMetricsReport {
+func (h *Hub) handleEvent(event *domain.WsInternalEvent) {
+	if h.metricsService != nil && strings.HasSuffix(event.Channel, ":metrics") && event.Event == domain.WsEventServerMetricsReport {
 		rawJSON, ok := event.Payload.(json.RawMessage)
 		if !ok {
 			h.log.Error("ws: invalid metrics payload")
@@ -166,7 +154,7 @@ func (h *Hub) handleEvent(event *ServerEvent) {
 			return
 		}
 
-		h.Broadcast(event.Channel, domain.EventServerMetricsReceived, m)
+		h.Broadcast(event.Channel, domain.WsEventServerMetricsReceived, m)
 		return
 	}
 
@@ -197,7 +185,7 @@ func (h *Hub) handleEvent(event *ServerEvent) {
 	}
 }
 
-func (h *Hub) handleCommand(command *CommandEvent) {
+func (h *Hub) handleCommand(command *domain.WsAgentCommand) {
 	agent, ok := h.agents[command.TargetServerID]
 	if !ok {
 		h.log.Warn("ws: cannot send command, agent offline", "server_id", command.TargetServerID)
@@ -223,7 +211,7 @@ func (h *Hub) handleCommand(command *CommandEvent) {
 }
 
 func (h *Hub) Broadcast(channel, event string, payload any) {
-	h.events <- &ServerEvent{
+	h.events <- &domain.WsInternalEvent{
 		Channel: channel,
 		Event:   event,
 		Payload: payload,
@@ -231,7 +219,7 @@ func (h *Hub) Broadcast(channel, event string, payload any) {
 }
 
 func (h *Hub) SendCommand(serverID, cmdType string, payload any) error {
-	h.commands <- &CommandEvent{
+	h.commands <- &domain.WsAgentCommand{
 		TargetServerID: serverID,
 		CommandType:    cmdType,
 		Payload:        payload,
