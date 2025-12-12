@@ -24,12 +24,18 @@ func (c *Collector) Collect(ctx context.Context) (MemoryMetric, error) {
 	swapFreeGB := c.getSwapFreeGB()
 	swapUsedGB := c.getSwapUsedGB()
 
+	usagePercent := 0.0
+	if memTotalGB > 0 {
+		usagePercent = (1 - (memAvailableGB / memTotalGB)) * 100
+	}
+
 	return MemoryMetric{
-		TotalGB:     memTotalGB,
-		AvailableGB: memAvailableGB,
-		UsedGB:      memUsedGB,
-		SwapTotalGB: swapTotalGB,
-		SwapFreeGB:  swapFreeGB,
-		SwapUsedGB:  swapUsedGB,
+		TotalGB:      memTotalGB,
+		AvailableGB:  memAvailableGB,
+		UsedGB:       memUsedGB,
+		UsagePercent: usagePercent,
+		SwapTotalGB:  swapTotalGB,
+		SwapFreeGB:   swapFreeGB,
+		SwapUsedGB:   swapUsedGB,
 	}, nil
 }

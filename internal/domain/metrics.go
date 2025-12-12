@@ -47,12 +47,13 @@ type GPUMetric struct {
 }
 
 type MemoryMetric struct {
-	TotalGB     float64 `json:"total_gb"`
-	UsedGB      float64 `json:"used_gb"`
-	AvailableGB float64 `json:"available_gb"`
-	SwapTotalGB float64 `json:"swap_total_gb"`
-	SwapFreeGB  float64 `json:"swap_free_gb"`
-	SwapUsedGB  float64 `json:"swap_used_gb"`
+	TotalGB      float64 `json:"total_gb"`
+	UsedGB       float64 `json:"used_gb"`
+	UsagePercent float64 `json:"usage_percent"`
+	AvailableGB  float64 `json:"available_gb"`
+	SwapTotalGB  float64 `json:"swap_total_gb"`
+	SwapFreeGB   float64 `json:"swap_free_gb"`
+	SwapUsedGB   float64 `json:"swap_used_gb"`
 }
 
 type DiskMetric struct {
