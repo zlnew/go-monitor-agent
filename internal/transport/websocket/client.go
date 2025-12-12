@@ -20,7 +20,8 @@ type Client struct {
 	hub  *Hub
 	conn *websocket.Conn
 	send chan []byte
-	log  logger.Logger
+
+	log logger.Logger
 
 	ID   string
 	Type string
@@ -38,13 +39,15 @@ type ClientMessage struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
-func NewClient(hub *Hub, conn *websocket.Conn, log logger.Logger, id, clientType string) *Client {
+func NewClient(hub *Hub, conn *websocket.Conn, log logger.Logger, clientID, clientType string) *Client {
 	return &Client{
 		hub:  hub,
 		conn: conn,
 		send: make(chan []byte, 256),
-		log:  log,
-		ID:   id,
+
+		log: log,
+
+		ID:   clientID,
 		Type: clientType,
 	}
 }
@@ -71,29 +74,6 @@ func (c *Client) readPump() {
 			break
 		}
 
-		if c.Type == TypeAgent {
-			var agentMsg ClientMessage
-			if err := json.Unmarshal(message, &agentMsg); err != nil {
-				c.log.Error("ws: invalid json message from agent", "error", err)
-				continue
-			}
-
-			switch agentMsg.Type {
-			case "event":
-				c.hub.events <- &ServerEvent{
-					Channel: agentMsg.Channel,
-					Event:   agentMsg.Event,
-					Payload: agentMsg.Payload,
-				}
-			case "ready":
-				go c.hub.updateAgentServerStatus(c.ID, true)
-				c.log.Info("ws: agent signalled ready, status updated and broadcasted", "server_id", c.ID)
-			default:
-				c.log.Warn("ws: unknown agent message type", "type", agentMsg.Type)
-			}
-			continue
-		}
-
 		var msg ClientMessage
 		if err := json.Unmarshal(message, &msg); err != nil {
 			c.log.Error("ws: invalid client message", "error", err)
@@ -101,12 +81,27 @@ func (c *Client) readPump() {
 		}
 
 		switch msg.Type {
+		case "agent_ping":
+		case "agent_ready":
+			c.hub.agentReady <- c
+		case "agent_event":
+			c.hub.events <- &ServerEvent{
+				Channel: msg.Channel,
+				Event:   msg.Event,
+				Payload: msg.Payload,
+			}
 		case "subscribe":
-			c.hub.subscribe <- &Subscription{client: c, channel: msg.Channel}
+			c.hub.subscribe <- &Subscription{
+				client:  c,
+				channel: msg.Channel,
+			}
 		case "unsubscribe":
-			c.hub.unsubscribe <- &Subscription{client: c, channel: msg.Channel}
+			c.hub.unsubscribe <- &Subscription{
+				client:  c,
+				channel: msg.Channel,
+			}
 		default:
-			c.log.Warn("ws: unknown client message type", "type", msg.Type)
+			c.log.Debug("ws: unknown client message type", "type", msg.Type)
 		}
 	}
 }
@@ -122,7 +117,6 @@ func (c *Client) writePump() {
 		select {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-
 			if !ok {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return

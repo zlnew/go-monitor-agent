@@ -78,6 +78,10 @@ type NetworkMetric struct {
 	TXSpeed float64 `json:"tx_speed"`
 }
 
+type MetricsService interface {
+	Ingest(m Metrics) error
+}
+
 type MetricsRepository interface {
 	BulkInsert(ctx context.Context, metrics []Metrics) error
 }

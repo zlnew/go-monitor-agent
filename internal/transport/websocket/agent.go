@@ -16,11 +16,11 @@ func (h *Hub) initAgent(serverID string, client *Client) {
 			"server_id": serverID,
 		},
 	}
-	bytes, _ := json.Marshal(payload)
+	message, _ := json.Marshal(payload)
 
 	select {
-	case client.send <- bytes:
-		h.log.Info("ws: agent registered, sent init command", "server_id", serverID)
+	case client.send <- message:
+		h.log.Info("ws: sent init command to agent", "server_id", serverID)
 	default:
 		h.log.Info("ws: agent send buffer full during init", "server_id", serverID)
 	}
@@ -38,7 +38,7 @@ func (h *Hub) updateAgentServerStatus(serverID string, isOnline bool) {
 		h.log.Error("ws: failed to update agent server status", "error", err, "server_id", parsedID, "online", isOnline)
 	}
 
-	h.Emit(domain.ChannelServerStatus, domain.EventServerStatusUpdated, domain.ServerStatusPayload{
+	h.Broadcast(domain.ChannelServerStatus, domain.EventServerStatusUpdated, domain.ServerStatusPayload{
 		ServerID: parsedID,
 		IsOnline: isOnline,
 	})

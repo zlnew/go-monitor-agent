@@ -64,7 +64,7 @@ func (a *Agent) readPump(ctx context.Context) error {
 				continue
 			}
 
-			a.handleCommand(ctx, cmd)
+			a.handleCommand(cmd)
 		}
 	}
 }
@@ -114,7 +114,7 @@ func (a *Agent) writePump(ctx context.Context) error {
 				Event   string `json:"event"`
 				Payload any    `json:"payload"`
 			}{
-				Type:    "event",
+				Type:    "agent_event",
 				Channel: channel,
 				Event:   event,
 				Payload: metric,

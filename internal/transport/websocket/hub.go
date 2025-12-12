@@ -3,28 +3,28 @@ package websocket
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
-	"horizonx-server/internal/core/metrics"
 	"horizonx-server/internal/domain"
 	"horizonx-server/internal/logger"
 )
 
 type Hub struct {
-	rooms  map[string]map[*Client]bool
-	agents map[string]*Client
+	clients  map[*Client]bool
+	agents   map[string]*Client
+	channels map[string]map[*Client]bool
 
 	register    chan *Client
 	unregister  chan *Client
 	subscribe   chan *Subscription
 	unsubscribe chan *Subscription
+	agentReady  chan *Client
 
 	events   chan *ServerEvent
 	commands chan *CommandEvent
 
 	serverService  domain.ServerService
-	metricsService *metrics.Service
+	metricsService domain.MetricsService
 
 	log logger.Logger
 }
@@ -35,27 +35,32 @@ type Subscription struct {
 }
 
 type ServerEvent struct {
-	Channel string
-	Event   string
-	Payload any
+	Channel string `json:"channel"`
+	Event   string `json:"event"`
+	Payload any    `json:"payload"`
 }
 
 type CommandEvent struct {
-	TargetServerID string
-	CommandType    string
-	Payload        any
+	TargetServerID string `json:"target_server_id"`
+	CommandType    string `json:"command_type"`
+	Payload        any    `json:"payload"`
 }
 
-func NewHub(log logger.Logger, serverService domain.ServerService, metricsService *metrics.Service) *Hub {
+func NewHub(log logger.Logger, serverService domain.ServerService, metricsService domain.MetricsService) *Hub {
 	return &Hub{
-		rooms:          make(map[string]map[*Client]bool),
-		agents:         make(map[string]*Client),
-		register:       make(chan *Client),
-		unregister:     make(chan *Client),
-		subscribe:      make(chan *Subscription),
-		unsubscribe:    make(chan *Subscription),
-		events:         make(chan *ServerEvent, 100),
-		commands:       make(chan *CommandEvent, 100),
+		clients:  make(map[*Client]bool),
+		agents:   make(map[string]*Client),
+		channels: make(map[string]map[*Client]bool),
+
+		register:    make(chan *Client),
+		unregister:  make(chan *Client),
+		subscribe:   make(chan *Subscription),
+		unsubscribe: make(chan *Subscription),
+		agentReady:  make(chan *Client),
+
+		events:   make(chan *ServerEvent, 100),
+		commands: make(chan *CommandEvent, 100),
+
 		serverService:  serverService,
 		metricsService: metricsService,
 		log:            log,
@@ -66,122 +71,158 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case client := <-h.register:
+			h.clients[client] = true
+			h.log.Info("ws: client registered", "id", client.ID, "type", client.Type, "total_clients", len(h.clients))
+
 			if client.Type == TypeAgent {
 				h.agents[client.ID] = client
 				h.initAgent(client.ID, client)
+				h.log.Info("ws: agent registered", "server_id", client.ID, "total_agents", len(h.agents))
 			}
 
 		case client := <-h.unregister:
-			if client.Type == TypeAgent {
-				if currentAgent, ok := h.agents[client.ID]; ok && currentAgent == client {
-					delete(h.agents, client.ID)
-					go h.updateAgentServerStatus(client.ID, false)
-					h.log.Info("ws: agent offline", "server_id", client.ID)
-				}
-			}
+			if _, ok := h.clients[client]; ok {
+				delete(h.clients, client)
+				close(client.send)
+				h.log.Info("ws: client unregistered", "id", client.ID, "type", client.Type, "total_clients", len(h.clients))
 
-			for roomName, clients := range h.rooms {
-				if _, ok := clients[client]; ok {
-					delete(clients, client)
-					if len(clients) == 0 {
-						delete(h.rooms, roomName)
+				if client.Type == TypeAgent {
+					if _, agentOk := h.agents[client.ID]; agentOk {
+						delete(h.agents, client.ID)
+						go h.updateAgentServerStatus(client.ID, false)
+						h.log.Info("ws: agent unregistered", "server_id", client.ID, "total_agents", len(h.agents))
+					}
+				}
+
+				for channelID, subs := range h.channels {
+					if _, subscribed := subs[client]; subscribed {
+						delete(subs, client)
+						if len(subs) == 0 {
+							delete(h.channels, channelID)
+						}
 					}
 				}
 			}
 
 		case sub := <-h.subscribe:
-			if _, ok := h.rooms[sub.channel]; !ok {
-				h.rooms[sub.channel] = make(map[*Client]bool)
+			if h.channels[sub.channel] == nil {
+				h.channels[sub.channel] = make(map[*Client]bool)
 			}
-			h.rooms[sub.channel][sub.client] = true
-			h.log.Debug("ws: client subscribed", "channel", sub.channel)
+			h.channels[sub.channel][sub.client] = true
+			h.log.Debug(
+				"ws: client subscribed",
+				"client_id", sub.client.ID,
+				"client_type", sub.client.Type,
+				"channel", sub.channel,
+			)
 
 		case sub := <-h.unsubscribe:
-			if clients, ok := h.rooms[sub.channel]; ok {
-				delete(clients, sub.client)
-				if len(clients) == 0 {
-					delete(h.rooms, sub.channel)
-				}
-			}
-
-		case evt := <-h.events:
-			if h.metricsService != nil && strings.HasSuffix(evt.Channel, ":metrics") && evt.Event == domain.EventServerMetricsReport {
-				rawJSON, ok := evt.Payload.(json.RawMessage)
-				if !ok {
-					h.log.Error("metric payload is not json.RawMessage", "type", fmt.Sprintf("%T", evt.Payload))
-					continue
-				}
-
-				var m domain.Metrics
-				if err := json.Unmarshal(rawJSON, &m); err != nil {
-					h.log.Error("failed to unmarshal domain.Metrics payload in hub", "error", err)
-					continue
-				}
-
-				if err := h.metricsService.Ingest(m); err != nil {
-					h.log.Error("failed to process ingested metric from hub", "error", err)
-				}
-
-				h.Emit(evt.Channel, domain.EventServerMetricsReceived, m)
-				continue
-			}
-
-			h.log.Debug("ws: processing event for broadcast", "channel", evt.Channel, "event", evt.Event)
-			data := map[string]any{
-				"type":    "event",
-				"event":   evt.Event,
-				"channel": evt.Channel,
-				"payload": evt.Payload,
-			}
-			bytes, err := json.Marshal(data)
-			if err != nil {
-				h.log.Error("ws: failed to marshal event for broadcast", "error", err)
-				continue
-			}
-
-			if clients, ok := h.rooms[evt.Channel]; ok {
-				h.log.Debug("ws: found room for channel", "channel", evt.Channel, "clients_count", len(clients))
-				for client := range clients {
-					select {
-					case client.send <- bytes:
-						h.log.Debug("ws: sent event to client", "channel", evt.Channel, "client_id", client.ID, "client_type", client.Type)
-					default:
-						h.log.Warn("ws: DROPPED event, client send buffer full", "channel", evt.Channel, "client_id", client.ID)
+			if subs, ok := h.channels[sub.channel]; ok {
+				if _, subscribed := subs[sub.client]; subscribed {
+					delete(subs, sub.client)
+					if len(subs) == 0 {
+						delete(h.channels, sub.channel)
 					}
+					h.log.Debug(
+						"ws: client unsubscribed",
+						"client_id", sub.client.ID,
+						"client_type", sub.client.Type,
+						"channel", sub.channel,
+					)
 				}
-			} else {
-				h.log.Debug("ws: no room found for channel, event not broadcasted", "channel", evt.Channel)
 			}
 
-		case cmd := <-h.commands:
-			agentClient, ok := h.agents[cmd.TargetServerID]
-			if !ok {
-				h.log.Warn("cannot send command: agent offline", "target_id", cmd.TargetServerID)
-				continue
+		case client := <-h.agentReady:
+			if client.Type == TypeAgent {
+				h.log.Info("ws: agent is now fully operational", "server_id", client.ID)
+				go h.updateAgentServerStatus(client.ID, true)
 			}
 
-			payload := map[string]any{
-				"type":    "command",
-				"command": cmd.CommandType,
-				"payload": cmd.Payload,
-			}
-			bytes, _ := json.Marshal(payload)
+		case event := <-h.events:
+			h.handleEvent(event)
 
-			select {
-			case agentClient.send <- bytes:
-				h.log.Info("command sent to agent", "target_id", cmd.TargetServerID, "cmd", cmd.CommandType)
-			default:
-				h.log.Error("agent send buffer full", "target_id", cmd.TargetServerID)
-			}
+		case command := <-h.commands:
+			h.handleCommand(command)
 		}
 	}
 }
 
-func (h *Hub) Events() <-chan *ServerEvent {
-	return h.events
+func (h *Hub) handleEvent(event *ServerEvent) {
+	if h.metricsService != nil && strings.HasSuffix(event.Channel, ":metrics") && event.Event == domain.EventServerMetricsReport {
+		rawJSON, ok := event.Payload.(json.RawMessage)
+		if !ok {
+			h.log.Error("ws: invalid metrics payload")
+			return
+		}
+
+		var m domain.Metrics
+		if err := json.Unmarshal(rawJSON, &m); err != nil {
+			h.log.Error("ws: invalid to process metrics payload", "error", err)
+			return
+		}
+
+		if err := h.metricsService.Ingest(m); err != nil {
+			h.log.Error("ws: failed to process ingested metrics", "error", err)
+			return
+		}
+
+		h.Broadcast(event.Channel, domain.EventServerMetricsReceived, m)
+		return
+	}
+
+	message, err := json.Marshal(event)
+	if err != nil {
+		h.log.Error("ws: failed to marshal server event", "error", err)
+		return
+	}
+
+	targetClients := h.clients
+
+	if event.Channel != "" {
+		if subs, ok := h.channels[event.Channel]; ok {
+			targetClients = subs
+		} else {
+			h.log.Debug("ws: event channels has not subscribers", "channel", event.Channel)
+			return
+		}
+	}
+
+	for client := range targetClients {
+		select {
+		case client.send <- message:
+		default:
+			h.log.Warn("ws: client channel full, force unregister", "id", client.ID)
+			h.unregister <- client
+		}
+	}
 }
 
-func (h *Hub) Emit(channel, event string, payload any) {
+func (h *Hub) handleCommand(command *CommandEvent) {
+	agent, ok := h.agents[command.TargetServerID]
+	if !ok {
+		h.log.Warn("ws: cannot send command, agent offline", "server_id", command.TargetServerID)
+		return
+	}
+
+	payload := map[string]any{
+		"type":    "command",
+		"command": command.CommandType,
+		"payload": command.Payload,
+	}
+	message, err := json.Marshal(payload)
+	if err != nil {
+		h.log.Error("ws: failed to marshal command event", "error", err)
+		return
+	}
+
+	select {
+	case agent.send <- message:
+	default:
+		h.log.Warn("ws: agent send buffer full", "server_id", command.TargetServerID)
+	}
+}
+
+func (h *Hub) Broadcast(channel, event string, payload any) {
 	h.events <- &ServerEvent{
 		Channel: channel,
 		Event:   event,

@@ -16,8 +16,9 @@ import (
 type Handler struct {
 	hub      *Hub
 	upgrader websocket.Upgrader
-	cfg      *config.Config
-	log      logger.Logger
+
+	cfg *config.Config
+	log logger.Logger
 
 	serverService domain.ServerService
 }
@@ -107,11 +108,8 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := NewClient(h.hub, conn, h.log, clientID, clientType)
-
-	h.hub.register <- client
+	client.hub.register <- client
 
 	go client.writePump()
 	go client.readPump()
-
-	h.log.Info("ws: client connected", "remote_addr", conn.RemoteAddr())
 }

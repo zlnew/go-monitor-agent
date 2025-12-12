@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"context"
 	"encoding/json"
 	"time"
 
@@ -20,7 +19,7 @@ type DeploymentPayload struct {
 	RepoURL string `json:"repo_url"`
 }
 
-func (a *Agent) handleCommand(ctx context.Context, cmd ServerCommand) {
+func (a *Agent) handleCommand(cmd ServerCommand) {
 	a.log.Info("executing command", "command", cmd.Command)
 
 	switch cmd.Command {

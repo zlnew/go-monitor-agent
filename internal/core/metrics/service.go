@@ -16,7 +16,7 @@ type Service struct {
 	saveQueue chan domain.Metrics
 }
 
-func NewService(repo domain.MetricsRepository, snapshot *snapshot.MetricsStore, log logger.Logger) *Service {
+func NewService(repo domain.MetricsRepository, snapshot *snapshot.MetricsStore, log logger.Logger) domain.MetricsService {
 	s := &Service{
 		repo:      repo,
 		snapshot:  snapshot,

@@ -16,7 +16,7 @@ func InitDB(connString string, log logger.Logger) (*pgxpool.Pool, error) {
 
 	cfg, err := pgxpool.ParseConfig(connString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse DB config: %w", err)
+		return nil, fmt.Errorf("postgres: failed to parse DB config: %w", err)
 	}
 
 	cfg.MaxConns = 25
@@ -26,14 +26,14 @@ func InitDB(connString string, log logger.Logger) (*pgxpool.Pool, error) {
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect postgres: %w", err)
+		return nil, fmt.Errorf("postgres: failed to connect postgres: %w", err)
 	}
 
 	if err := pool.Ping(ctx); err != nil {
-		return nil, fmt.Errorf("database not responding (ping fail): %w", err)
+		return nil, fmt.Errorf("postgres: database not responding (ping fail): %w", err)
 	}
 
-	log.Info("Postgres connected", "max_conns", cfg.MaxConns)
+	log.Info("postgres: connected", "max_conns", cfg.MaxConns)
 
 	return pool, nil
 }

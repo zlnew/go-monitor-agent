@@ -33,7 +33,7 @@ func main() {
 
 	dbPool, err := postgres.InitDB(cfg.DatabaseURL, log)
 	if err != nil {
-		log.Error("Failed to init DB", "error", err)
+		log.Error("failed to init DB", "error", err)
 	}
 	defer dbPool.Close()
 
@@ -69,7 +69,7 @@ func main() {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("starting http server", "address", cfg.Address)
+		log.Info("http: starting server", "address", cfg.Address)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -81,11 +81,11 @@ func main() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {
-			log.Error("http server shutdown error", "error", err)
+			log.Error("http: server shutdown error", "error", err)
 		}
 
 	case err := <-errCh:
-		log.Error("http server error", "error", err)
+		log.Error("http: server error", "error", err)
 	}
 
 	log.Info("server stopped")

@@ -182,7 +182,7 @@ func (a *Agent) sendReadySignal() error {
 	readyMsg := struct {
 		Type string `json:"type"`
 	}{
-		Type: "ready",
+		Type: "agent_ready",
 	}
 
 	a.conn.SetWriteDeadline(time.Now().Add(writeWait))
