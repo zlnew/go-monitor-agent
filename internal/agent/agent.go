@@ -23,14 +23,20 @@ const (
 )
 
 type Agent struct {
-	conn         *websocket.Conn
-	serverURL    string
-	token        string
-	initCh       chan int64
-	metricsCh    chan domain.Metrics
+	hub  *Hub
+	conn *websocket.Conn
+
+	send chan []byte
+
+	log logger.Logger
+
+	serverURL string
+	serverID  int64
+	token     string
+
 	sessionCtxCh chan context.Context
-	log          logger.Logger
-	serverID     int64
+
+	internalEvents chan *domain.WsInternalEvent
 }
 
 var ErrUnauthorized = errors.New("connection failed: unauthorized (check token)")
@@ -39,15 +45,16 @@ func IsFatalError(err error) bool {
 	return errors.Is(err, ErrUnauthorized)
 }
 
-func NewAgent(serverURL, token string, log logger.Logger) *Agent {
+func NewAgent(hub *Hub, log logger.Logger, serverURL, token string) *Agent {
 	return &Agent{
-		serverURL:    serverURL,
-		token:        token,
-		initCh:       make(chan int64, 1),
-		metricsCh:    make(chan domain.Metrics, 10),
-		sessionCtxCh: make(chan context.Context, 1),
-		log:          log,
-		serverID:     0,
+		hub:            hub,
+		log:            log,
+		send:           make(chan []byte, 256),
+		serverURL:      serverURL,
+		serverID:       0,
+		token:          token,
+		sessionCtxCh:   make(chan context.Context, 1),
+		internalEvents: make(chan *domain.WsInternalEvent, 16),
 	}
 }
 
@@ -112,6 +119,8 @@ func (a *Agent) start(ctx context.Context) error {
 	a.conn = conn
 	a.log.Info("ws connected to server", "url", a.serverURL)
 
+	go a.forwardHubEvents(ctx)
+
 	sessionCtx, cancel := context.WithCancel(ctx)
 	pumpDone := make(chan error, 1)
 
@@ -125,32 +134,63 @@ func (a *Agent) start(ctx context.Context) error {
 	go func() { pumpDone <- a.readPump(sessionCtx) }()
 	go func() { pumpDone <- a.writePump(sessionCtx) }()
 
+	initTimeout := 15 * time.Second
+	initDone := make(chan struct{})
+	go func() {
+		for ev := range a.internalEvents {
+			if ev == nil {
+				continue
+			}
+			if ev.Event == domain.WsEventAgentReady {
+				var sid int64
+				switch v := ev.Payload.(type) {
+				case float64:
+					sid = int64(v)
+				case int64:
+					sid = v
+				case int:
+					sid = int64(v)
+				case json.Number:
+					if parsed, err := v.Int64(); err == nil {
+						sid = parsed
+					}
+				default:
+					a.log.Error("unexpected payload type for agent ready", "type", fmt.Sprintf("%T", ev.Payload))
+				}
+				if sid != 0 {
+					a.serverID = sid
+					a.log.Info("agent initialized with server id", "server_id", a.serverID)
+					close(initDone)
+					return
+				}
+			}
+		}
+	}()
+
 	select {
-	case a.sessionCtxCh <- sessionCtx:
+	case <-initDone:
+		select {
+		case a.sessionCtxCh <- sessionCtx:
+			a.log.Info("session context published to scheduler")
+		default:
+			a.log.Warn("session context channel is full, failed to publish")
+		}
+	case <-time.After(initTimeout):
+		a.log.Warn("did not receive init from server within timeout; metrics will not start for this session")
 	case <-ctx.Done():
 		return ctx.Err()
-	}
-
-	a.log.Info("waiting for server init command...")
-	if err := a.waitForInit(sessionCtx); err != nil {
-		return fmt.Errorf("agent initialization failed: %w", err)
-	}
-
-	if err := a.sendReadySignal(); err != nil {
-		a.log.Error("failed to send ready signal, session stopping", "error", err)
-		return fmt.Errorf("failed to send ready signal: %w", err)
 	}
 
 	var finalErr error
 	select {
 	case finalErr = <-pumpDone:
-		a.log.Info("a communication pump has exited, shutting down agent session", "error", finalErr)
+		a.log.Info("a pump has exited, shutting down agent session", "error", finalErr)
 	case <-ctx.Done():
 		finalErr = ctx.Err()
 		a.log.Info("agent received external shutdown signal, closing session")
 	}
 
-	a.conn.SetWriteDeadline(time.Now().Add(writeWait))
+	_ = a.conn.SetWriteDeadline(time.Now().Add(writeWait))
 	_ = a.conn.WriteMessage(
 		websocket.CloseMessage,
 		websocket.FormatCloseMessage(websocket.CloseNormalClosure, "shutting down"),
@@ -167,38 +207,23 @@ func (a *Agent) start(ctx context.Context) error {
 	return finalErr
 }
 
-func (a *Agent) waitForInit(ctx context.Context) error {
-	select {
-	case id := <-a.initCh:
-		a.serverID = id
-		a.log.Info("agent initialized successfully", "server_id", a.serverID)
-		return nil
-	case <-time.After(5 * time.Second):
-		return errors.New("agent initialization timeout")
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-func (a *Agent) sendReadySignal() error {
-	a.conn.SetWriteDeadline(time.Now().Add(writeWait))
-
-	message := domain.WsClientMessage{
-		Type:  domain.WsAgentReport,
-		Event: domain.WsEventAgentReady,
-	}
-	bytes, err := json.Marshal(message)
-	if err != nil {
-		return fmt.Errorf("failed to marshal ready signal: %w", err)
+func (a *Agent) forwardHubEvents(ctx context.Context) {
+	if a.hub == nil {
+		return
 	}
 
-	if err := a.conn.WriteMessage(websocket.TextMessage, bytes); err != nil {
-		return fmt.Errorf("failed to write ready signal: %w", err)
+	for {
+		select {
+		case ev := <-a.hub.agentEvents:
+			select {
+			case a.internalEvents <- ev:
+			default:
+				a.log.Warn("internal events buffer full, dropping event", "event", ev.Event)
+			}
+		case <-ctx.Done():
+			return
+		}
 	}
-
-	a.log.Info("agent sent READY signal to server. now fully online.")
-
-	return nil
 }
 
 func (a *Agent) SendMetrics(m domain.Metrics) {
@@ -209,9 +234,18 @@ func (a *Agent) SendMetrics(m domain.Metrics) {
 
 	m.ServerID = a.serverID
 
-	select {
-	case a.metricsCh <- m:
-	default:
-		a.log.Warn("metrics channel full, dropping metric", "ts", time.Now().UTC())
+	channel := domain.GetServerMetricsChannel(m.ServerID)
+	event := domain.WsEventServerMetricsReport
+	payload, err := json.Marshal(m)
+	if err != nil {
+		a.log.Error("failed to marchasl metrics payload", "error", err)
+		return
 	}
+
+	a.hub.BroadcastToServer(&domain.WsClientMessage{
+		Type:    domain.WsAgentReport,
+		Channel: channel,
+		Event:   event,
+		Payload: payload,
+	})
 }

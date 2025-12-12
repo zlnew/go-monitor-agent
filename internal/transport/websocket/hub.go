@@ -170,7 +170,7 @@ func (h *Hub) handleEvent(event *domain.WsInternalEvent) {
 		if subs, ok := h.channels[event.Channel]; ok {
 			targetClients = subs
 		} else {
-			h.log.Debug("ws: event channels has not subscribers", "channel", event.Channel)
+			h.log.Debug("ws: event channels has no subscribers", "channel", event.Channel)
 			return
 		}
 	}
@@ -218,12 +218,10 @@ func (h *Hub) Broadcast(channel, event string, payload any) {
 	}
 }
 
-func (h *Hub) SendCommand(serverID, cmdType string, payload any) error {
+func (h *Hub) SendCommand(serverID, cmdType string, payload any) {
 	h.commands <- &domain.WsAgentCommand{
 		TargetServerID: serverID,
 		CommandType:    cmdType,
 		Payload:        payload,
 	}
-
-	return nil
 }

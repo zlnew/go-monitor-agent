@@ -41,7 +41,7 @@ func (a *Agent) readPump(ctx context.Context) error {
 				continue
 			}
 
-			a.handleCommand(command)
+			a.hub.commands <- &command
 		}
 	}
 }
@@ -55,44 +55,31 @@ func (a *Agent) writePump(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 
-		case metrics, ok := <-a.metricsCh:
+		case message, ok := <-a.send:
+			a.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				a.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return nil
 			}
 
-			a.conn.SetWriteDeadline(time.Now().Add(writeWait))
-
-			channel := domain.GetServerMetricsChannel(metrics.ServerID)
-			event := domain.WsEventServerMetricsReport
-			payload, err := json.Marshal(metrics)
+			w, err := a.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
-				a.log.Error("failed to marshal metrics", "error", err)
-				continue
+				return err
 			}
 
-			message := &domain.WsClientMessage{
-				Type:    domain.WsAgentReport,
-				Channel: channel,
-				Event:   event,
-				Payload: payload,
-			}
-
-			bytes, err := json.Marshal(message)
+			_, err = w.Write(message)
 			if err != nil {
-				a.log.Error("failed to marshal metrics report message", "error", err)
-				continue
+				w.Close()
+				return err
 			}
 
-			if err := a.conn.WriteMessage(websocket.TextMessage, bytes); err != nil {
-				a.log.Error("failed to write metrics report", "error", err)
+			if err := w.Close(); err != nil {
 				return err
 			}
 
 		case <-ticker.C:
 			a.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := a.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				a.log.Error("failed to write ping", "error", err)
 				return err
 			}
 		}

@@ -41,7 +41,10 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	a := agent.NewAgent(serverURL, agentToken, appLog)
+	h := agent.NewHub(appLog)
+	go h.Run()
+	a := agent.NewAgent(h, appLog, serverURL, agentToken)
+	h.SetAgent(a)
 
 	g, gCtx := errgroup.WithContext(ctx)
 
