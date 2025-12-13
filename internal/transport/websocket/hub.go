@@ -51,14 +51,14 @@ func NewHub(parent context.Context, log logger.Logger, serverService domain.Serv
 		agents:   make(map[string]*Client),
 		channels: make(map[string]map[*Client]bool),
 
-		register:    make(chan *Client),
-		unregister:  make(chan *Client),
-		subscribe:   make(chan *Subscription),
-		unsubscribe: make(chan *Subscription),
-		agentReady:  make(chan *Client),
+		register:    make(chan *Client, 64),
+		unregister:  make(chan *Client, 64),
+		subscribe:   make(chan *Subscription, 64),
+		unsubscribe: make(chan *Subscription, 64),
+		agentReady:  make(chan *Client, 12),
 
-		events:   make(chan *domain.WsInternalEvent, 100),
-		commands: make(chan *domain.WsAgentCommand, 100),
+		events:   make(chan *domain.WsInternalEvent, 256),
+		commands: make(chan *domain.WsAgentCommand, 128),
 
 		serverService:  serverService,
 		metricsService: metricsService,
@@ -177,16 +177,18 @@ func (h *Hub) handleEvent(event *domain.WsInternalEvent) {
 			return
 		}
 
-		if err := h.metricsService.Ingest(m); err != nil {
-			h.log.Error("ws: failed to process ingested metrics", "error", err)
-			return
-		}
+		go func() {
+			if err := h.metricsService.Ingest(m); err != nil {
+				h.log.Error("ws: failed to process ingested metrics", "error", err)
+				return
+			}
 
-		h.Broadcast(&domain.WsInternalEvent{
-			Channel: event.Channel,
-			Event:   domain.WsEventServerMetricsReceived,
-			Payload: m,
-		})
+			h.Broadcast(&domain.WsInternalEvent{
+				Channel: event.Channel,
+				Event:   domain.WsEventServerMetricsReceived,
+				Payload: m,
+			})
+		}()
 
 		return
 	}
@@ -253,23 +255,30 @@ func (h *Hub) updateAgentServerStatus(serverID string, isOnline bool) {
 		h.log.Error("ws: failed to update agent server status", "error", err, "server_id", parsedID, "online", isOnline)
 	}
 
-	select {
-	case h.events <- &domain.WsInternalEvent{
+	h.Broadcast(&domain.WsInternalEvent{
 		Channel: domain.WsChannelServerStatus,
 		Event:   domain.WsEventServerStatusUpdated,
 		Payload: domain.ServerStatusPayload{
 			ServerID: parsedID,
 			IsOnline: isOnline,
 		},
-	}:
-	case <-h.ctx.Done():
-	}
+	})
 }
 
 func (h *Hub) Broadcast(ev *domain.WsInternalEvent) {
-	h.events <- ev
+	select {
+	case h.events <- ev:
+	case <-h.ctx.Done():
+	default:
+		h.log.Warn("ws: broadcast buffer full, dropping event")
+	}
 }
 
 func (h *Hub) SendCommand(cmd *domain.WsAgentCommand) {
-	h.commands <- cmd
+	select {
+	case h.commands <- cmd:
+	case <-h.ctx.Done():
+	default:
+		h.log.Warn("ws: command buffer full, dropping event")
+	}
 }
