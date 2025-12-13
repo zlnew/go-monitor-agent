@@ -2,14 +2,20 @@
 package websocket
 
 import (
+	"context"
 	"encoding/json"
+	"strconv"
 	"strings"
+	"time"
 
 	"horizonx-server/internal/domain"
 	"horizonx-server/internal/logger"
 )
 
 type Hub struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	clients  map[*Client]bool
 	agents   map[string]*Client
 	channels map[string]map[*Client]bool
@@ -34,8 +40,13 @@ type Subscription struct {
 	channel string
 }
 
-func NewHub(log logger.Logger, serverService domain.ServerService, metricsService domain.MetricsService) *Hub {
+func NewHub(parent context.Context, log logger.Logger, serverService domain.ServerService, metricsService domain.MetricsService) *Hub {
+	ctx, cancel := context.WithCancel(parent)
+
 	return &Hub{
+		ctx:    ctx,
+		cancel: cancel,
+
 		clients:  make(map[*Client]bool),
 		agents:   make(map[string]*Client),
 		channels: make(map[string]map[*Client]bool),
@@ -58,13 +69,25 @@ func NewHub(log logger.Logger, serverService domain.ServerService, metricsServic
 func (h *Hub) Run() {
 	for {
 		select {
+		case <-h.ctx.Done():
+			h.log.Info("ws: hub shutting down")
+
+			for client := range h.clients {
+				close(client.send)
+			}
+			return
+
 		case client := <-h.register:
 			h.clients[client] = true
 			h.log.Info("ws: client registered", "id", client.ID, "type", client.Type, "total_clients", len(h.clients))
 
 			if client.Type == domain.WsClientAgent {
 				h.agents[client.ID] = client
-				h.initAgent(client.ID, client)
+				h.SendCommand(&domain.WsAgentCommand{
+					TargetServerID: client.ID,
+					CommandType:    "init",
+				})
+
 				h.log.Info("ws: agent registered", "server_id", client.ID, "total_agents", len(h.agents))
 			}
 
@@ -135,6 +158,10 @@ func (h *Hub) Run() {
 	}
 }
 
+func (h *Hub) Stop() {
+	h.cancel()
+}
+
 func (h *Hub) handleEvent(event *domain.WsInternalEvent) {
 	if h.metricsService != nil && strings.HasSuffix(event.Channel, ":metrics") && event.Event == domain.WsEventServerMetricsReport {
 		rawJSON, ok := event.Payload.(json.RawMessage)
@@ -154,7 +181,12 @@ func (h *Hub) handleEvent(event *domain.WsInternalEvent) {
 			return
 		}
 
-		h.Broadcast(event.Channel, domain.WsEventServerMetricsReceived, m)
+		h.Broadcast(&domain.WsInternalEvent{
+			Channel: event.Channel,
+			Event:   domain.WsEventServerMetricsReceived,
+			Payload: m,
+		})
+
 		return
 	}
 
@@ -192,14 +224,9 @@ func (h *Hub) handleCommand(command *domain.WsAgentCommand) {
 		return
 	}
 
-	payload := map[string]any{
-		"type":    "command",
-		"command": command.CommandType,
-		"payload": command.Payload,
-	}
-	message, err := json.Marshal(payload)
+	message, err := json.Marshal(command)
 	if err != nil {
-		h.log.Error("ws: failed to marshal command event", "error", err)
+		h.log.Error("ws: failed to marshal command", "error", err)
 		return
 	}
 
@@ -210,18 +237,38 @@ func (h *Hub) handleCommand(command *domain.WsAgentCommand) {
 	}
 }
 
-func (h *Hub) Broadcast(channel, event string, payload any) {
-	h.events <- &domain.WsInternalEvent{
-		Channel: channel,
-		Event:   event,
-		Payload: payload,
+func (h *Hub) updateAgentServerStatus(serverID string, isOnline bool) {
+	ctx, cancel := context.WithTimeout(h.ctx, 5*time.Second)
+	defer cancel()
+
+	parsedID, err := strconv.ParseInt(serverID, 10, 64)
+	if err != nil {
+		h.log.Error("ws: failed to parse server ID for status update", "id", serverID, "error", err)
+		return
+	}
+
+	err = h.serverService.UpdateStatus(ctx, parsedID, isOnline)
+	if err != nil {
+		h.log.Error("ws: failed to update agent server status", "error", err, "server_id", parsedID, "online", isOnline)
+	}
+
+	select {
+	case h.events <- &domain.WsInternalEvent{
+		Channel: domain.WsChannelServerStatus,
+		Event:   domain.WsEventServerStatusUpdated,
+		Payload: domain.ServerStatusPayload{
+			ServerID: parsedID,
+			IsOnline: isOnline,
+		},
+	}:
+	case <-h.ctx.Done():
 	}
 }
 
-func (h *Hub) SendCommand(serverID, cmdType string, payload any) {
-	h.commands <- &domain.WsAgentCommand{
-		TargetServerID: serverID,
-		CommandType:    cmdType,
-		Payload:        payload,
-	}
+func (h *Hub) Broadcast(ev *domain.WsInternalEvent) {
+	h.events <- ev
+}
+
+func (h *Hub) SendCommand(cmd *domain.WsAgentCommand) {
+	h.commands <- cmd
 }

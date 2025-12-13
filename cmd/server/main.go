@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -48,7 +47,7 @@ func main() {
 	authService := auth.NewService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
 	userService := user.NewService(userRepo)
 
-	hub := websocket.NewHub(log, serverService, metricsService)
+	hub := websocket.NewHub(ctx, log, serverService, metricsService)
 	go hub.Run()
 
 	wsHandler := websocket.NewHandler(hub, cfg, log, serverService)
@@ -70,22 +69,25 @@ func main() {
 	errCh := make(chan error, 1)
 	go func() {
 		log.Info("http: starting server", "address", cfg.Address)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
-		}
+		errCh <- srv.ListenAndServe()
 		close(errCh)
 	}()
 
 	select {
 	case <-ctx.Done():
+		hub.Stop()
+
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			log.Error("http: server shutdown error", "error", err)
 		}
 
 	case err := <-errCh:
-		log.Error("http: server error", "error", err)
+		if err != nil && err != http.ErrServerClosed {
+			log.Error("http: server error", "error", err)
+		}
 	}
 
 	log.Info("server stopped")

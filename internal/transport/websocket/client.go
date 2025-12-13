@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -18,6 +19,9 @@ const (
 )
 
 type Client struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	hub  *Hub
 	conn *websocket.Conn
 	send chan []byte
@@ -29,7 +33,12 @@ type Client struct {
 }
 
 func NewClient(hub *Hub, conn *websocket.Conn, log logger.Logger, clientID, clientType string) *Client {
+	ctx, cancel := context.WithCancel(hub.ctx)
+
 	return &Client{
+		ctx:    ctx,
+		cancel: cancel,
+
 		hub:  hub,
 		conn: conn,
 		send: make(chan []byte, 256),
@@ -43,6 +52,7 @@ func NewClient(hub *Hub, conn *websocket.Conn, log logger.Logger, clientID, clie
 
 func (c *Client) readPump() {
 	defer func() {
+		c.cancel()
 		c.hub.unregister <- c
 		c.conn.Close()
 	}()
@@ -55,46 +65,51 @@ func (c *Client) readPump() {
 	})
 
 	for {
-		_, message, err := c.conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				c.log.Warn("ws: client disconnected unexpected", "error", err)
+		select {
+		case <-c.ctx.Done():
+			return
+		default:
+			_, message, err := c.conn.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					c.log.Warn("ws: client disconnected unexpected", "error", err)
+				}
+				break
 			}
-			break
-		}
 
-		var msg domain.WsClientMessage
-		if err := json.Unmarshal(message, &msg); err != nil {
-			c.log.Error("ws: invalid client message", "error", err)
-			continue
-		}
-
-		switch msg.Type {
-		case domain.WsAgentReport:
-			if msg.Event == domain.WsEventAgentReady {
-				c.hub.agentReady <- c
+			var msg domain.WsClientMessage
+			if err := json.Unmarshal(message, &msg); err != nil {
+				c.log.Error("ws: invalid client message", "error", err)
 				continue
 			}
-			c.hub.events <- &domain.WsInternalEvent{
-				Channel: msg.Channel,
-				Event:   msg.Event,
-				Payload: msg.Payload,
-			}
 
-		case domain.WsSubscribe:
-			c.hub.subscribe <- &Subscription{
-				client:  c,
-				channel: msg.Channel,
-			}
+			switch msg.Type {
+			case domain.WsAgentReport:
+				if msg.Event == domain.WsEventAgentReady {
+					c.hub.agentReady <- c
+					continue
+				}
+				c.hub.events <- &domain.WsInternalEvent{
+					Channel: msg.Channel,
+					Event:   msg.Event,
+					Payload: msg.Payload,
+				}
 
-		case domain.WsUnsubscribe:
-			c.hub.unsubscribe <- &Subscription{
-				client:  c,
-				channel: msg.Channel,
-			}
+			case domain.WsSubscribe:
+				c.hub.subscribe <- &Subscription{
+					client:  c,
+					channel: msg.Channel,
+				}
 
-		default:
-			c.log.Debug("ws: unknown client message type", "type", msg.Type)
+			case domain.WsUnsubscribe:
+				c.hub.unsubscribe <- &Subscription{
+					client:  c,
+					channel: msg.Channel,
+				}
+
+			default:
+				c.log.Debug("ws: unknown client message type", "type", msg.Type)
+			}
 		}
 	}
 }
@@ -108,6 +123,9 @@ func (c *Client) writePump() {
 
 	for {
 		select {
+		case <-c.ctx.Done():
+			return
+
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {

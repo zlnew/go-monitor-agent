@@ -38,7 +38,7 @@ type WsClientMessage struct {
 type WsInternalEvent struct {
 	Channel string `json:"channel"`
 	Event   string `json:"event"`
-	Payload any    `json:"payload"`
+	Payload any    `json:"payload,omitempty"`
 }
 
 type WsAgentCommand struct {
