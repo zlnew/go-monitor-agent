@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -82,6 +83,8 @@ func (h *JobHandler) Finish(w http.ResponseWriter, r *http.Request) {
 			JSONError(w, http.StatusNotFound, "job not found")
 			return
 		}
+
+		log.Println("asd", err.Error())
 
 		JSONError(w, http.StatusInternalServerError, "something went wrong")
 		return

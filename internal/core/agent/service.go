@@ -165,11 +165,12 @@ func (a *Agent) readPump(ctx context.Context) error {
 			case <-ctx.Done():
 				return ctx.Err()
 			default:
-				a.log.Info("incoming server command",
-					"target_server_id", cmd.TargetServerID.String(),
-					"command_type", cmd.CommandType,
-					"payload", cmd.Payload,
-				)
+				switch cmd.CommandType {
+				case domain.WsCommandAgentInit:
+					a.handleInitCommand(ctx, cmd)
+				default:
+					a.log.Warn("unknown server command", "type", cmd.CommandType)
+				}
 			}
 		}
 	}

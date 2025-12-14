@@ -14,16 +14,16 @@ var (
 )
 
 type Job struct {
-	ID             int64     `json:"id"`
-	ServerID       uuid.UUID `json:"server_id"`
-	ApplicationID  *int64    `json:"application_id"`
-	JobType        string    `json:"job_type"`
-	CommandPayload any       `json:"command_payload"`
-	Status         string    `json:"status"`
-	OutputLog      string    `json:"output_log"`
-	QueuedAt       time.Time `json:"queued_at"`
-	StartedAt      time.Time `json:"started_at"`
-	FinishedAt     time.Time `json:"finished_at"`
+	ID             int64      `json:"id"`
+	ServerID       uuid.UUID  `json:"server_id"`
+	ApplicationID  *int64     `json:"application_id"`
+	JobType        string     `json:"job_type"`
+	CommandPayload any        `json:"command_payload"`
+	Status         string     `json:"status"`
+	OutputLog      *string    `json:"output_log"`
+	QueuedAt       *time.Time `json:"queued_at"`
+	StartedAt      *time.Time `json:"started_at"`
+	FinishedAt     *time.Time `json:"finished_at"`
 }
 
 type JobStatus string

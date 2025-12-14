@@ -48,9 +48,9 @@ type WsServerEvent struct {
 }
 
 type WsAgentCommand struct {
-	TargetServerID uuid.UUID `json:"target_server_id"`
-	CommandType    string    `json:"command_type"`
-	Payload        any       `json:"payload,omitempty"`
+	TargetServerID uuid.UUID         `json:"target_server_id"`
+	CommandType    string            `json:"command_type"`
+	Payload        JobCommandPayload `json:"payload,omitempty"`
 }
 
 type ServerStatusPayload struct {

@@ -126,9 +126,10 @@ func (r *JobRepository) MarkRunning(ctx context.Context, jobID int64) (*domain.J
 			job_type,
 			command_payload,
 			status,
+			output_log,
+			queued_at,
 			started_at,
-			finished_at,
-			output_log
+			finished_at
 	`
 
 	var job domain.Job
@@ -139,9 +140,10 @@ func (r *JobRepository) MarkRunning(ctx context.Context, jobID int64) (*domain.J
 		&job.JobType,
 		&job.CommandPayload,
 		&job.Status,
+		&job.OutputLog,
+		&job.QueuedAt,
 		&job.StartedAt,
 		&job.FinishedAt,
-		&job.OutputLog,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -175,9 +177,10 @@ func (r *JobRepository) MarkFinished(
 			job_type,
 			command_payload,
 			status,
+			output_log,
+			queued_at,
 			started_at,
-			finished_at,
-			output_log
+			finished_at
 	`
 
 	var job domain.Job
@@ -188,9 +191,10 @@ func (r *JobRepository) MarkFinished(
 		&job.JobType,
 		&job.CommandPayload,
 		&job.Status,
+		&job.OutputLog,
+		&job.QueuedAt,
 		&job.StartedAt,
 		&job.FinishedAt,
-		&job.OutputLog,
 	)
 
 	if err == pgx.ErrNoRows {
