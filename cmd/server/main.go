@@ -9,6 +9,7 @@ import (
 
 	"horizonx-server/internal/config"
 	"horizonx-server/internal/core/auth"
+	"horizonx-server/internal/core/job"
 	"horizonx-server/internal/core/server"
 	"horizonx-server/internal/core/user"
 	"horizonx-server/internal/logger"
@@ -36,14 +37,17 @@ func main() {
 
 	serverRepo := postgres.NewServerRepository(dbPool)
 	userRepo := postgres.NewUserRepository(dbPool)
+	jobRepo := postgres.NewJobRepository(dbPool)
 
 	serverService := server.NewService(serverRepo)
 	authService := auth.NewService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
 	userService := user.NewService(userRepo)
+	jobService := job.NewService(jobRepo)
 
 	serverHandler := rest.NewServerHandler(serverService)
 	authHandler := rest.NewAuthHandler(authService, cfg)
 	userHandler := rest.NewUserHandler(userService)
+	jobHandler := rest.NewJobHandler(jobService)
 
 	wsWebHub := ws.NewHub(ctx, log)
 	go wsWebHub.Run()
@@ -59,8 +63,9 @@ func main() {
 		Server:  serverHandler,
 		Auth:    authHandler,
 		User:    userHandler,
+		Job:     jobHandler,
 
-		ServerRepo: serverRepo,
+		ServerService: serverService,
 	})
 
 	srv := rest.NewServer(router, cfg.Address)

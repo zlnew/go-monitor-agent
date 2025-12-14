@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,4 +44,27 @@ type ServerService interface {
 	Delete(ctx context.Context, serverID uuid.UUID) error
 	AuthorizeAgent(ctx context.Context, serverID uuid.UUID, secret string) (*Server, error)
 	UpdateStatus(ctx context.Context, serverID uuid.UUID, status bool) error
+}
+
+func ValidateAgentCredentials(token string) (uuid.UUID, string, error) {
+	var zeroUUID uuid.UUID
+
+	parts := strings.SplitN(token, ".", 2)
+	if len(parts) != 2 {
+		return zeroUUID, "", ErrUnauthorized
+	}
+
+	rawServerID := parts[0]
+	secret := parts[1]
+
+	serverID, err := uuid.Parse(rawServerID)
+	if err != nil {
+		return zeroUUID, "", ErrUnauthorized
+	}
+
+	if secret == "" {
+		return zeroUUID, "", ErrUnauthorized
+	}
+
+	return serverID, secret, nil
 }

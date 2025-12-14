@@ -1,0 +1,58 @@
+package domain
+
+import (
+	"context"
+	"errors"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+var (
+	ErrJobNotFound     = errors.New("job not found")
+	ErrInvalidJobState = errors.New("invalid job state")
+)
+
+type Job struct {
+	ID             int64     `json:"id"`
+	ServerID       uuid.UUID `json:"server_id"`
+	ApplicationID  int64     `json:"application_id"`
+	JobType        string    `json:"job_type"`
+	CommandPayload any       `json:"command_payload"`
+	Status         string    `json:"status"`
+	OutputLog      string    `json:"output_log"`
+	QueuedAt       time.Time `json:"queued_at"`
+	StartedAt      time.Time `json:"started_at"`
+	FinishedAt     time.Time `json:"finished_at"`
+}
+
+type JobStatus string
+
+const (
+	JobQueued  JobStatus = "queued"
+	JobRunning JobStatus = "running"
+	JobSuccess JobStatus = "success"
+	JobFailed  JobStatus = "failed"
+)
+
+type JobFinishRequest struct {
+	Status    JobStatus `json:"status" validate:"required"`
+	OutputLog string    `json:"output_log" validate:"required"`
+}
+
+type JobRepository interface {
+	List(ctx context.Context) ([]Job, error)
+	Create(ctx context.Context, j *Job) (*Job, error)
+	Delete(ctx context.Context, jobID int64) error
+	MarkRunning(ctx context.Context, jobID int64) (*Job, error)
+	MarkFinished(ctx context.Context, jobID int64, status JobStatus, outputLog *string) (*Job, error)
+	GetByID(ctx context.Context, jobID int64) (*Job, error)
+}
+
+type JobService interface {
+	Get(ctx context.Context) ([]Job, error)
+	Create(ctx context.Context, j *Job) (*Job, error)
+	Delete(ctx context.Context, jobID int64) error
+	Start(ctx context.Context, jobID int64) (*Job, error)
+	Finish(ctx context.Context, jobID int64, status JobStatus, outputLog *string) (*Job, error)
+}

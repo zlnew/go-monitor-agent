@@ -26,7 +26,7 @@ func main() {
 		log.Fatal("FATAL: HORIZONX_SERVER_API_TOKEN is missing in .env or system vars!")
 	}
 
-	appLog.Info("HorizonX Agent: starting spy mission...", "server_url", cfg.AgentTargetWsURL)
+	appLog.Info("HorizonX Agent: starting spy mission...")
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

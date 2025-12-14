@@ -12,30 +12,34 @@ type key int
 
 const ServerIDKey key = 0
 
-func AgentAuth(serverRepo domain.ServerRepository) func(http.Handler) http.Handler {
+func AgentAuth(svc domain.ServerService) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				http.Error(w, "Missing Authorization Header", http.StatusUnauthorized)
+			auth := r.Header.Get("Authorization")
+			if auth == "" {
+				http.Error(w, "missing authorization header", http.StatusUnauthorized)
 				return
 			}
 
-			parts := strings.Split(authHeader, " ")
+			parts := strings.SplitN(auth, " ", 2)
 			if len(parts) != 2 || parts[0] != "Bearer" {
-				http.Error(w, "Invalid Token Format", http.StatusUnauthorized)
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
-			token := parts[1]
 
-			server, err := serverRepo.GetByToken(r.Context(), token)
+			serverID, secret, err := domain.ValidateAgentCredentials(parts[1])
 			if err != nil {
-				http.Error(w, "Invalid or Revoked Token", http.StatusUnauthorized)
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+				return
+			}
+
+			server, err := svc.AuthorizeAgent(r.Context(), serverID, secret)
+			if err != nil {
+				http.Error(w, "invalid credentials", http.StatusUnauthorized)
 				return
 			}
 
 			ctx := context.WithValue(r.Context(), ServerIDKey, server.ID)
-
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

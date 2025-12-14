@@ -5,7 +5,10 @@ import (
 	"errors"
 )
 
-var ErrInvalidCredentials = errors.New("invalid credentials")
+var (
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrUnauthorized       = errors.New("unauthorized")
+)
 
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`

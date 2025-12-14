@@ -7,7 +7,6 @@ import (
 	"horizonx-server/internal/domain"
 	"horizonx-server/internal/logger"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -41,7 +40,7 @@ func (h *AgentHandler) Serve(w http.ResponseWriter, r *http.Request) {
 
 	auth := r.Header.Get("Authorization")
 	if auth == "" {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "missing authorization header", http.StatusUnauthorized)
 		return
 	}
 
@@ -51,32 +50,16 @@ func (h *AgentHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	raw := strings.TrimSpace(parts[1])
-
-	tokenParts := strings.SplitN(raw, ".", 2)
-	if len(tokenParts) != 2 {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	rawServerID := tokenParts[0]
-	secret := tokenParts[1]
-
-	serverID, err := uuid.Parse(rawServerID)
+	serverID, secret, err := domain.ValidateAgentCredentials(parts[1])
 	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	if secret == "" {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
 	server, err := h.serverService.AuthorizeAgent(r.Context(), serverID, secret)
 	if err != nil {
 		h.log.Warn("ws auth: invalid credentials")
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
@@ -85,7 +68,7 @@ func (h *AgentHandler) Serve(w http.ResponseWriter, r *http.Request) {
 
 	if clientID == "" {
 		h.log.Warn("ws auth: invalid credentials")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
