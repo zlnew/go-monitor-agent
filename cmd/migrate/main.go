@@ -7,10 +7,10 @@ import (
 	"log"
 	"os"
 
-	storagePg "horizonx-server/internal/storage/postgres"
+	"horizonx-server/internal/adapters/postgres"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
+	pgMigrate "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
@@ -36,12 +36,12 @@ func main() {
 	}
 	defer db.Close()
 
-	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	driver, err := pgMigrate.WithInstance(db, &pgMigrate.Config{})
 	if err != nil {
 		log.Fatalf("could not create driver: %v", err)
 	}
 
-	src, err := iofs.New(storagePg.MigrationsFS, "migrations")
+	src, err := iofs.New(postgres.MigrationsFS, "migrations")
 	if err != nil {
 		log.Fatalf("could not create source driver: %v", err)
 	}

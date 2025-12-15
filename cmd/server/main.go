@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
-	"net/http"
+	netHttp "net/http"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"horizonx-server/internal/adapters/http"
+	"horizonx-server/internal/adapters/postgres"
+	"horizonx-server/internal/adapters/ws"
 	"horizonx-server/internal/config"
 	"horizonx-server/internal/core/auth"
 	"horizonx-server/internal/core/job"
@@ -15,9 +18,6 @@ import (
 	"horizonx-server/internal/domain"
 	"horizonx-server/internal/event"
 	"horizonx-server/internal/logger"
-	"horizonx-server/internal/storage/postgres"
-	"horizonx-server/internal/transport/rest"
-	"horizonx-server/internal/transport/ws"
 )
 
 func main() {
@@ -48,10 +48,10 @@ func main() {
 	userService := user.NewService(userRepo)
 	jobService := job.NewService(jobRepo, bus)
 
-	serverHandler := rest.NewServerHandler(serverService)
-	authHandler := rest.NewAuthHandler(authService, cfg)
-	userHandler := rest.NewUserHandler(userService)
-	jobHandler := rest.NewJobHandler(jobService)
+	serverHandler := http.NewServerHandler(serverService)
+	authHandler := http.NewAuthHandler(authService, cfg)
+	userHandler := http.NewUserHandler(userService)
+	jobHandler := http.NewJobHandler(jobService)
 
 	hub := ws.NewHub(ctx, log)
 	wsHandler := ws.NewHandler(hub, log, cfg.JWTSecret, cfg.AllowedOrigins)
@@ -67,7 +67,7 @@ func main() {
 	go hub.Run()
 	go agentHub.Run()
 
-	router := rest.NewRouter(cfg, &rest.RouterDeps{
+	router := http.NewRouter(cfg, &http.RouterDeps{
 		WsWeb:   wsHandler,
 		WsAgent: wsAgentHandler,
 		Server:  serverHandler,
@@ -78,7 +78,7 @@ func main() {
 		ServerService: serverService,
 	})
 
-	srv := rest.NewServer(router, cfg.Address)
+	srv := http.NewServer(router, cfg.Address)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -100,7 +100,7 @@ func main() {
 		}
 
 	case err := <-errCh:
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && err != netHttp.ErrServerClosed {
 			log.Error("http: server error", "error", err)
 		}
 	}

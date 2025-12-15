@@ -1,13 +1,13 @@
-// Package rest
-package rest
+// Package http
+package http
 
 import (
 	"net/http"
 
+	"horizonx-server/internal/adapters/http/middleware"
+	"horizonx-server/internal/adapters/ws"
 	"horizonx-server/internal/config"
 	"horizonx-server/internal/domain"
-	"horizonx-server/internal/transport/rest/middleware"
-	"horizonx-server/internal/transport/ws"
 )
 
 type RouterDeps struct {
