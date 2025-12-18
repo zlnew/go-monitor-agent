@@ -9,13 +9,14 @@ import (
 
 	"horizonx-server/internal/adapters/http"
 	"horizonx-server/internal/adapters/postgres"
-	"horizonx-server/internal/adapters/ws"
+	"horizonx-server/internal/adapters/ws/agentws"
+	"horizonx-server/internal/adapters/ws/userws"
+	"horizonx-server/internal/adapters/ws/userws/subscribers"
 	"horizonx-server/internal/application/auth"
 	"horizonx-server/internal/application/job"
 	"horizonx-server/internal/application/server"
 	"horizonx-server/internal/application/user"
 	"horizonx-server/internal/config"
-	"horizonx-server/internal/domain"
 	"horizonx-server/internal/event"
 	"horizonx-server/internal/logger"
 )
@@ -53,19 +54,16 @@ func main() {
 	userHandler := http.NewUserHandler(userService)
 	jobHandler := http.NewJobHandler(jobService)
 
-	hub := ws.NewHub(ctx, log)
-	wsUserHandler := ws.NewUserHandler(hub, log, cfg.JWTSecret, cfg.AllowedOrigins)
+	wsUserhub := userws.NewHub(ctx, log)
+	wsUserHandler := userws.NewHandler(wsUserhub, log, cfg.JWTSecret, cfg.AllowedOrigins)
 
-	serverSubs := ws.NewServerStatusSubscriber(hub)
-	bus.Subscribe("server_status_changed", func(e any) {
-		serverSubs.Handle(e.(domain.ServerStatusChanged))
-	})
+	wsAgentRouter := agentws.NewRouter(ctx, log)
+	wsAgentHandler := agentws.NewHandler(wsAgentRouter, log, serverService)
 
-	agentRouter := ws.NewAgentRouter(ctx, log)
-	wsAgentHandler := ws.NewAgentHandler(agentRouter, log, serverService)
+	go wsUserhub.Run()
+	go wsAgentRouter.Run()
 
-	go hub.Run()
-	go agentRouter.Run()
+	subscribers.Register(bus, wsUserhub)
 
 	router := http.NewRouter(cfg, &http.RouterDeps{
 		WsUser:  wsUserHandler,
@@ -89,8 +87,8 @@ func main() {
 
 	select {
 	case <-ctx.Done():
-		hub.Stop()
-		agentRouter.Stop()
+		wsUserhub.Stop()
+		wsAgentRouter.Stop()
 
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

@@ -5,18 +5,20 @@ import (
 	"net/http"
 
 	"horizonx-server/internal/adapters/http/middleware"
-	"horizonx-server/internal/adapters/ws"
+	"horizonx-server/internal/adapters/ws/agentws"
+	"horizonx-server/internal/adapters/ws/userws"
 	"horizonx-server/internal/config"
 	"horizonx-server/internal/domain"
 )
 
 type RouterDeps struct {
-	WsUser  *ws.UserHandler
-	WsAgent *ws.AgentHandler
-	Server  *ServerHandler
-	Auth    *AuthHandler
-	User    *UserHandler
-	Job     *JobHandler
+	WsUser  *userws.Handler
+	WsAgent *agentws.Handler
+
+	Server *ServerHandler
+	Auth   *AuthHandler
+	User   *UserHandler
+	Job    *JobHandler
 
 	ServerService domain.ServerService
 }

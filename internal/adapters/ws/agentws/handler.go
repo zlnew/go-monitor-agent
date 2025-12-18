@@ -1,4 +1,4 @@
-package ws
+package agentws
 
 import (
 	"net/http"
@@ -10,29 +10,29 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type AgentHandler struct {
-	hub      *AgentRouter
+type Handler struct {
+	router   *Router
 	upgrader websocket.Upgrader
 	log      logger.Logger
 	svc      domain.ServerService
 }
 
-func NewAgentHandler(hub *AgentRouter, log logger.Logger, svc domain.ServerService) *AgentHandler {
+func NewHandler(router *Router, log logger.Logger, svc domain.ServerService) *Handler {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
 	}
 
-	return &AgentHandler{
-		hub:      hub,
+	return &Handler{
+		router:   router,
 		upgrader: upgrader,
 		log:      log,
 		svc:      svc,
 	}
 }
 
-func (h *AgentHandler) Serve(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 	auth := r.Header.Get("Authorization")
 	if auth == "" {
 		http.Error(w, "missing authorization header", http.StatusUnauthorized)
@@ -69,7 +69,7 @@ func (h *AgentHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a := NewAgent(h.hub, conn, h.log, h.svc, serverID)
+	a := NewClient(h.router, conn, h.log, h.svc, serverID)
 	a.hub.register <- a
 
 	go a.writePump()

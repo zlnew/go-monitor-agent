@@ -1,5 +1,5 @@
-// Package ws
-package ws
+// Package userws
+package userws
 
 import (
 	"context"
@@ -19,7 +19,7 @@ const (
 	maxMessageSize = 8192
 )
 
-type User struct {
+type Client struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
@@ -32,10 +32,10 @@ type User struct {
 	ID string
 }
 
-func NewUser(hub *Hub, conn *websocket.Conn, log logger.Logger, cID string) *User {
+func NewClient(hub *Hub, conn *websocket.Conn, log logger.Logger, cID string) *Client {
 	ctx, cancel := context.WithCancel(hub.ctx)
 
-	return &User{
+	return &Client{
 		ctx:    ctx,
 		cancel: cancel,
 
@@ -49,7 +49,7 @@ func NewUser(hub *Hub, conn *websocket.Conn, log logger.Logger, cID string) *Use
 	}
 }
 
-func (c *User) readPump() {
+func (c *Client) readPump() {
 	defer func() {
 		c.cancel()
 		c.hub.unregister <- c
@@ -100,7 +100,7 @@ func (c *User) readPump() {
 	}
 }
 
-func (c *User) writePump() {
+func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()

@@ -3,23 +3,20 @@ package event
 
 import "sync"
 
-type Handler func(event any)
-
 type Bus struct {
 	mu       sync.RWMutex
-	handlers map[string][]Handler
+	handlers map[string][]func(event any)
 }
 
 func New() *Bus {
 	return &Bus{
-		handlers: make(map[string][]Handler),
+		handlers: make(map[string][]func(event any)),
 	}
 }
 
-func (b *Bus) Subscribe(eventName string, handler Handler) {
+func (b *Bus) Subscribe(eventName string, handler func(event any)) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-
 	b.handlers[eventName] = append(b.handlers[eventName], handler)
 }
 

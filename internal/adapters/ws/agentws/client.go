@@ -1,5 +1,5 @@
-// Package ws
-package ws
+// Package agentws
+package agentws
 
 import (
 	"context"
@@ -12,11 +12,18 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type Agent struct {
+const (
+	writeWait      = 10 * time.Second
+	pongWait       = 60 * time.Second
+	pingPeriod     = (pongWait * 9) / 10
+	maxMessageSize = 8192
+)
+
+type Client struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	hub  *AgentRouter
+	hub  *Router
 	conn *websocket.Conn
 	send chan []byte
 
@@ -26,10 +33,10 @@ type Agent struct {
 	ID uuid.UUID
 }
 
-func NewAgent(hub *AgentRouter, conn *websocket.Conn, log logger.Logger, svc domain.ServerService, cID uuid.UUID) *Agent {
+func NewClient(hub *Router, conn *websocket.Conn, log logger.Logger, svc domain.ServerService, cID uuid.UUID) *Client {
 	ctx, cancel := context.WithCancel(hub.ctx)
 
-	return &Agent{
+	return &Client{
 		ctx:    ctx,
 		cancel: cancel,
 
@@ -44,7 +51,7 @@ func NewAgent(hub *AgentRouter, conn *websocket.Conn, log logger.Logger, svc dom
 	}
 }
 
-func (a *Agent) readPump() {
+func (a *Client) readPump() {
 	defer func() {
 		a.cancel()
 		a.hub.unregister <- a
@@ -79,7 +86,7 @@ func (a *Agent) readPump() {
 	}
 }
 
-func (a *Agent) writePump() {
+func (a *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()

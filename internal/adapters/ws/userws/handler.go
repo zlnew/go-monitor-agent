@@ -1,4 +1,4 @@
-package ws
+package userws
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type UserHandler struct {
+type Handler struct {
 	hub      *Hub
 	upgrader websocket.Upgrader
 	log      logger.Logger
@@ -20,7 +20,7 @@ type UserHandler struct {
 	allowedOrigins []string
 }
 
-func NewUserHandler(hub *Hub, log logger.Logger, secret string, allowedOrigins []string) *UserHandler {
+func NewHandler(hub *Hub, log logger.Logger, secret string, allowedOrigins []string) *Handler {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
@@ -38,7 +38,7 @@ func NewUserHandler(hub *Hub, log logger.Logger, secret string, allowedOrigins [
 		},
 	}
 
-	return &UserHandler{
+	return &Handler{
 		hub:      hub,
 		upgrader: upgrader,
 		log:      log,
@@ -48,7 +48,7 @@ func NewUserHandler(hub *Hub, log logger.Logger, secret string, allowedOrigins [
 	}
 }
 
-func (h *UserHandler) Serve(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 	var clientID string
 
 	cookie, err := r.Cookie("access_token")
@@ -74,7 +74,7 @@ func (h *UserHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := NewUser(h.hub, conn, h.log, clientID)
+	c := NewClient(h.hub, conn, h.log, clientID)
 	c.hub.register <- c
 
 	go c.writePump()
