@@ -6,8 +6,8 @@ import (
 
 func Register(bus EventBus, hub *userws.Hub) {
 	serverStatusChanged := NewServerStatusChanged(hub)
-	serverMetricsUpdated := NewServerMetricsUpdated(hub)
+	serverMetricsReceived := NewServerMetricsReceived(hub)
 
 	bus.Subscribe("server_status_changed", serverStatusChanged.Handle)
-	bus.Subscribe("server_metrics_updated", serverMetricsUpdated.Handle)
+	bus.Subscribe("server_metrics_received", serverMetricsReceived.Handle)
 }
