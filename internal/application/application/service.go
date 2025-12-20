@@ -58,9 +58,32 @@ func (s *Service) Create(ctx context.Context, req domain.ApplicationCreateReques
 		DockerComposeRaw: req.DockerComposeRaw,
 		Status:           domain.AppStatusStopped,
 	}
-
 	created, err := s.repo.Create(ctx, app)
 	if err != nil {
+		return nil, err
+	}
+
+	var envVars []domain.EnvironmentVariable
+	for _, env := range req.EnvVars {
+		envVars = append(envVars, domain.EnvironmentVariable{
+			Key:       env.Key,
+			Value:     env.Value,
+			IsPreview: env.IsPreview,
+		})
+	}
+	if err := s.repo.SyncEnvVars(ctx, created.ID, envVars); err != nil {
+		return nil, err
+	}
+
+	var volumes []domain.Volume
+	for _, vol := range req.Volumes {
+		volumes = append(volumes, domain.Volume{
+			HostPath:      vol.HostPath,
+			ContainerPath: vol.ContainerPath,
+			Mode:          vol.Mode,
+		})
+	}
+	if err := s.repo.SyncVolumes(ctx, created.ID, volumes); err != nil {
 		return nil, err
 	}
 
@@ -83,8 +106,35 @@ func (s *Service) Update(ctx context.Context, req domain.ApplicationUpdateReques
 		Branch:           req.Branch,
 		DockerComposeRaw: req.DockerComposeRaw,
 	}
+	if err := s.repo.Update(ctx, app, appID); err != nil {
+		return err
+	}
 
-	return s.repo.Update(ctx, app, appID)
+	var envVars []domain.EnvironmentVariable
+	for _, env := range req.EnvVars {
+		envVars = append(envVars, domain.EnvironmentVariable{
+			Key:       env.Key,
+			Value:     env.Value,
+			IsPreview: env.IsPreview,
+		})
+	}
+	if err := s.repo.SyncEnvVars(ctx, appID, envVars); err != nil {
+		return err
+	}
+
+	var volumes []domain.Volume
+	for _, vol := range req.Volumes {
+		volumes = append(volumes, domain.Volume{
+			HostPath:      vol.HostPath,
+			ContainerPath: vol.ContainerPath,
+			Mode:          vol.Mode,
+		})
+	}
+	if err := s.repo.SyncVolumes(ctx, appID, volumes); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Service) Delete(ctx context.Context, appID int64) error {

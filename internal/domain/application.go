@@ -27,7 +27,7 @@ type Application struct {
 	ID               int64             `json:"id"`
 	ServerID         uuid.UUID         `json:"server_id"`
 	Name             string            `json:"name"`
-	RepoURL          *string           `json:"repo_url,omitempty"`
+	RepoURL          string            `json:"repo_url,omitempty"`
 	Branch           string            `json:"branch"`
 	DockerComposeRaw string            `json:"docker_compose_raw"`
 	Status           ApplicationStatus `json:"status"`
@@ -35,8 +35,8 @@ type Application struct {
 	CreatedAt        time.Time         `json:"created_at"`
 	UpdatedAt        time.Time         `json:"updated_at"`
 
-	EnvironmentVars []EnvironmentVariable `json:"environment_vars,omitempty"`
-	Volumes         []Volume              `json:"volumes,omitempty"`
+	EnvVars *[]EnvironmentVariable `json:"environment_vars,omitempty"`
+	Volumes *[]Volume              `json:"volumes,omitempty"`
 }
 
 type EnvironmentVariable struct {
@@ -61,16 +61,22 @@ type Volume struct {
 type ApplicationCreateRequest struct {
 	ServerID         uuid.UUID `json:"server_id" validate:"required"`
 	Name             string    `json:"name" validate:"required,min=3,max=100"`
-	RepoURL          *string   `json:"repo_url" validate:"omitempty,url"`
+	RepoURL          string    `json:"repo_url" validate:"required"`
 	Branch           string    `json:"branch" validate:"required"`
 	DockerComposeRaw string    `json:"docker_compose_raw" validate:"required"`
+
+	EnvVars []EnvironmentVariableRequest `json:"env_vars" validate:"omitempty,dive"`
+	Volumes []VolumeRequest              `json:"volumes" validate:"omitempty,dive"`
 }
 
 type ApplicationUpdateRequest struct {
-	Name             string  `json:"name" validate:"required,min=3,max=100"`
-	RepoURL          *string `json:"repo_url" validate:"omitempty,url"`
-	Branch           string  `json:"branch" validate:"required"`
-	DockerComposeRaw string  `json:"docker_compose_raw" validate:"required"`
+	Name             string `json:"name" validate:"required,min=3,max=100"`
+	RepoURL          string `json:"repo_url" validate:"required"`
+	Branch           string `json:"branch" validate:"required"`
+	DockerComposeRaw string `json:"docker_compose_raw" validate:"required"`
+
+	EnvVars []EnvironmentVariableRequest `json:"env_vars" validate:"omitempty,dive"`
+	Volumes []VolumeRequest              `json:"volumes" validate:"omitempty,dive"`
 }
 
 type EnvironmentVariableRequest struct {
@@ -96,12 +102,14 @@ type ApplicationRepository interface {
 	UpdateLastDeployment(ctx context.Context, appID int64) error
 
 	// Environment Variables
+	SyncEnvVars(ctx context.Context, appID int64, envVars []EnvironmentVariable) error
 	ListEnvVars(ctx context.Context, appID int64) ([]EnvironmentVariable, error)
 	CreateEnvVar(ctx context.Context, env *EnvironmentVariable) error
 	UpdateEnvVar(ctx context.Context, env *EnvironmentVariable) error
 	DeleteEnvVar(ctx context.Context, appID int64, key string) error
 
 	// Volumes
+	SyncVolumes(ctx context.Context, appID int64, volumes []Volume) error
 	ListVolumes(ctx context.Context, appID int64) ([]Volume, error)
 	CreateVolume(ctx context.Context, vol *Volume) error
 	DeleteVolume(ctx context.Context, volumeID int64) error

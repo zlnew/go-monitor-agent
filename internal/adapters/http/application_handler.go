@@ -68,8 +68,8 @@ func (h *ApplicationHandler) Show(w http.ResponseWriter, r *http.Request) {
 	envVars, _ := h.svc.ListEnvVars(r.Context(), appID)
 	volumes, _ := h.svc.ListVolumes(r.Context(), appID)
 
-	app.EnvironmentVars = envVars
-	app.Volumes = volumes
+	app.EnvVars = &envVars
+	app.Volumes = &volumes
 
 	JSONSuccess(w, http.StatusOK, APIResponse{
 		Message: "OK",

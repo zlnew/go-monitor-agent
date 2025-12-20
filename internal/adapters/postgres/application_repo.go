@@ -205,6 +205,76 @@ func (r *ApplicationRepository) UpdateLastDeployment(ctx context.Context, appID 
 // ENVIRONMENT VARIABLES
 // ============================================================================
 
+func (r *ApplicationRepository) SyncEnvVars(ctx context.Context, appID int64, envVars []domain.EnvironmentVariable) error {
+	if len(envVars) == 0 {
+		return nil
+	}
+
+	now := time.Now().UTC()
+
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	batch := &pgx.Batch{}
+	keys := make([]string, 0, len(envVars))
+
+	for _, e := range envVars {
+		keys = append(keys, e.Key)
+
+		batch.Queue(`
+			INSERT INTO environment_variables (
+				application_id,
+				key,
+				value,
+				is_preview,
+				created_at,
+				updated_at
+			)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (application_id, key)
+			DO UPDATE SET
+				value = EXCLUDED.value,
+				is_preview = EXCLUDED.is_preview,
+				updated_at = EXCLUDED.updated_at
+		`,
+			appID,
+			e.Key,
+			e.Value,
+			e.IsPreview,
+			now,
+			now,
+		)
+	}
+
+	br := tx.SendBatch(ctx, batch)
+	if _, err := br.Exec(); err != nil {
+		br.Close()
+		return fmt.Errorf("failed to upsert env vars: %w", err)
+	}
+	br.Close()
+
+	_, err = tx.Exec(ctx, `
+		DELETE FROM environment_variables
+		WHERE application_id = $1
+		  AND key NOT IN (SELECT unnest($2::text[]))
+	`,
+		appID,
+		keys,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to delete stale env vars: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit tx: %w", err)
+	}
+
+	return nil
+}
+
 func (r *ApplicationRepository) ListEnvVars(ctx context.Context, appID int64) ([]domain.EnvironmentVariable, error) {
 	query := `
 		SELECT id, application_id, key, value, is_preview, created_at, updated_at
@@ -308,6 +378,81 @@ func (r *ApplicationRepository) DeleteEnvVar(ctx context.Context, appID int64, k
 // ============================================================================
 // VOLUMES
 // ============================================================================
+
+func (r *ApplicationRepository) SyncVolumes(ctx context.Context, appID int64, volumes []domain.Volume) error {
+	if len(volumes) == 0 {
+		return nil
+	}
+
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	batch := &pgx.Batch{}
+	identities := make([]string, 0, len(volumes))
+
+	for _, v := range volumes {
+		identity := v.HostPath + "->" + v.ContainerPath
+		identities = append(identities, identity)
+
+		batch.Queue(`
+			INSERT INTO volumes (
+				application_id,
+				host_path,
+				container_path,
+				mode
+			)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT DO NOTHING
+		`,
+			appID,
+			v.HostPath,
+			v.ContainerPath,
+			v.Mode,
+		)
+
+		batch.Queue(`
+			UPDATE volumes
+			SET mode = $4
+			WHERE application_id = $1
+			  AND host_path = $2
+			  AND container_path = $3
+		`,
+			appID,
+			v.HostPath,
+			v.ContainerPath,
+			v.Mode,
+		)
+	}
+
+	br := tx.SendBatch(ctx, batch)
+	if _, err := br.Exec(); err != nil {
+		br.Close()
+		return fmt.Errorf("failed to sync volumes: %w", err)
+	}
+	br.Close()
+
+	_, err = tx.Exec(ctx, `
+		DELETE FROM volumes
+		WHERE application_id = $1
+		  AND (host_path || '->' || container_path)
+		      NOT IN (SELECT unnest($2::text[]))
+	`,
+		appID,
+		identities,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to delete stale volumes: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit tx: %w", err)
+	}
+
+	return nil
+}
 
 func (r *ApplicationRepository) ListVolumes(ctx context.Context, appID int64) ([]domain.Volume, error) {
 	query := `
