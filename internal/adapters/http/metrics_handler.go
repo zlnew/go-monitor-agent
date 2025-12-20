@@ -6,6 +6,8 @@ import (
 
 	"horizonx-server/internal/domain"
 	"horizonx-server/internal/logger"
+
+	"github.com/google/uuid"
 )
 
 type MetricsHandler struct {
@@ -52,5 +54,24 @@ func (h *MetricsHandler) Ingest(w http.ResponseWriter, r *http.Request) {
 		Data: map[string]any{
 			"count": len(payload.Metrics),
 		},
+	})
+}
+
+func (h *MetricsHandler) Latest(w http.ResponseWriter, r *http.Request) {
+	serverID, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		JSONError(w, http.StatusNotFound, "server not found")
+		return
+	}
+
+	metrics, ok := h.svc.Latest(serverID)
+	if !ok {
+		JSONError(w, http.StatusNotFound, "no metrics yet")
+		return
+	}
+
+	JSONSuccess(w, http.StatusOK, APIResponse{
+		Message: "OK",
+		Data:    metrics,
 	})
 }

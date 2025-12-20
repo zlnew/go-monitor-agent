@@ -9,6 +9,8 @@ import (
 	"horizonx-server/internal/domain"
 	"horizonx-server/internal/event"
 	"horizonx-server/internal/logger"
+
+	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -18,6 +20,9 @@ type Service struct {
 
 	buffer   []domain.Metrics
 	bufferMu sync.Mutex
+
+	latest   map[uuid.UUID]domain.Metrics
+	latestMu sync.Mutex
 
 	flushInterval time.Duration
 	maxBatchSize  int
@@ -29,6 +34,7 @@ func NewService(repo domain.MetricsRepository, bus *event.Bus, log logger.Logger
 		bus:           bus,
 		log:           log,
 		buffer:        make([]domain.Metrics, 0, 100),
+		latest:        make(map[uuid.UUID]domain.Metrics),
 		flushInterval: 5 * time.Second,
 		maxBatchSize:  50,
 	}
@@ -39,6 +45,10 @@ func NewService(repo domain.MetricsRepository, bus *event.Bus, log logger.Logger
 }
 
 func (s *Service) Ingest(m domain.Metrics) error {
+	s.latestMu.Lock()
+	s.latest[m.ServerID] = m
+	s.latestMu.Unlock()
+
 	s.bufferMu.Lock()
 	s.buffer = append(s.buffer, m)
 	bufferSize := len(s.buffer)
@@ -56,6 +66,15 @@ func (s *Service) Ingest(m domain.Metrics) error {
 	}
 
 	return nil
+}
+
+func (s *Service) Latest(serverID uuid.UUID) (domain.Metrics, bool) {
+	s.latestMu.Lock()
+	defer s.latestMu.Unlock()
+
+	m, ok := s.latest[serverID]
+
+	return m, ok
 }
 
 func (s *Service) backgroundFlusher() {

@@ -87,6 +87,7 @@ type MetricsPayload struct {
 
 type MetricsService interface {
 	Ingest(m Metrics) error
+	Latest(serverID uuid.UUID) (Metrics, bool)
 }
 
 type MetricsRepository interface {

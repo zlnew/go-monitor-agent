@@ -62,6 +62,7 @@ func NewRouter(cfg *config.Config, deps *RouterDeps) http.Handler {
 	mux.Handle("POST /servers", userStack.Then(http.HandlerFunc(deps.Server.Store)))
 	mux.Handle("PUT /servers/{id}", userStack.Then(http.HandlerFunc(deps.Server.Update)))
 	mux.Handle("DELETE /servers/{id}", userStack.Then(http.HandlerFunc(deps.Server.Destroy)))
+	mux.Handle("GET /servers/{id}/metrics/latest", userStack.Then(http.HandlerFunc(deps.Metrics.Latest)))
 
 	// USERS
 	mux.Handle("GET /users", userStack.Then(http.HandlerFunc(deps.User.Index)))
