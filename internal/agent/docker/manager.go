@@ -26,7 +26,7 @@ func NewManager(log logger.Logger, workDir string) *Manager {
 }
 
 func (m *Manager) Initialize() error {
-	if err := os.Mkdir(m.workDir, 0o755); err != nil {
+	if err := os.MkdirAll(m.workDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create work directory: %w", err)
 	}
 
