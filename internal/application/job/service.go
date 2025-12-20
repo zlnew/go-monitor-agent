@@ -24,6 +24,10 @@ func (s *JobService) Get(ctx context.Context) ([]domain.Job, error) {
 	return s.repo.List(ctx)
 }
 
+func (s *JobService) GetByID(ctx context.Context, jobID int64) (*domain.Job, error) {
+	return s.repo.GetByID(ctx, jobID)
+}
+
 func (s *JobService) Create(ctx context.Context, j *domain.Job) (*domain.Job, error) {
 	job, err := s.repo.Create(ctx, j)
 	if err != nil {
@@ -36,6 +40,12 @@ func (s *JobService) Create(ctx context.Context, j *domain.Job) (*domain.Job, er
 			ServerID: job.ServerID,
 			JobType:  job.JobType,
 		})
+
+		s.bus.Publish("job_status_changed", domain.EventJobStatusChanged{
+			JobID:         job.ID,
+			ApplicationID: job.ApplicationID,
+			Status:        domain.JobQueued,
+		})
 	}
 
 	return job, nil
@@ -46,7 +56,28 @@ func (s *JobService) Delete(ctx context.Context, jobID int64) error {
 }
 
 func (s *JobService) Start(ctx context.Context, jobID int64) (*domain.Job, error) {
-	return s.repo.MarkRunning(ctx, jobID)
+	job, err := s.repo.MarkRunning(ctx, jobID)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.bus != nil {
+		s.bus.Publish("job_status_changed", domain.EventJobStatusChanged{
+			JobID:         job.ID,
+			ApplicationID: job.ApplicationID,
+			Status:        domain.JobRunning,
+		})
+
+		if job.ApplicationID != nil {
+			s.bus.Publish("application_status_changed", domain.EventApplicationStatusChanged{
+				ApplicationID: *job.ApplicationID,
+				Status:        domain.AppStatusStarting,
+				Message:       "Job is running",
+			})
+		}
+	}
+
+	return job, nil
 }
 
 func (s *JobService) Finish(ctx context.Context, jobID int64, status domain.JobStatus, result *string) (*domain.Job, error) {
@@ -62,6 +93,44 @@ func (s *JobService) Finish(ctx context.Context, jobID int64, status domain.JobS
 			JobType:  job.JobType,
 			Result:   job.OutputLog,
 		})
+
+		s.bus.Publish("job_status_changed", domain.EventJobStatusChanged{
+			JobID:         job.ID,
+			ApplicationID: job.ApplicationID,
+			Status:        status,
+			OutputLog:     result,
+		})
+
+		if job.ApplicationID != nil {
+			var appStatus domain.ApplicationStatus
+			var message string
+
+			if status == domain.JobSuccess {
+				appStatus = domain.AppStatusRunning
+				message = "Deployment successful"
+
+				s.bus.Publish("application_deployed", domain.EventApplicationDeployed{
+					ApplicationID: *job.ApplicationID,
+					Success:       true,
+					Message:       message,
+				})
+			} else {
+				appStatus = domain.AppStatusFailed
+				message = "Deployment failed"
+
+				s.bus.Publish("application_deployed", domain.EventApplicationDeployed{
+					ApplicationID: *job.ApplicationID,
+					Success:       false,
+					Message:       message,
+				})
+			}
+
+			s.bus.Publish("application_status_changed", domain.EventApplicationStatusChanged{
+				ApplicationID: *job.ApplicationID,
+				Status:        appStatus,
+				Message:       message,
+			})
+		}
 	}
 
 	return job, err

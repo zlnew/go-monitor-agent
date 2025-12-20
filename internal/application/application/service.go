@@ -280,7 +280,6 @@ func (s *Service) UpdateEnvVar(ctx context.Context, appID int64, key string, req
 }
 
 func (s *Service) DeleteEnvVar(ctx context.Context, appID int64, key string) error {
-	// Verify app exists
 	_, err := s.repo.GetByID(ctx, appID)
 	if err != nil {
 		return err

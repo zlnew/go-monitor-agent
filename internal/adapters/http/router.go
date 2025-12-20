@@ -70,6 +70,10 @@ func NewRouter(cfg *config.Config, deps *RouterDeps) http.Handler {
 	mux.Handle("PUT /users/{id}", userStack.Then(http.HandlerFunc(deps.User.Update)))
 	mux.Handle("DELETE /users/{id}", userStack.Then(http.HandlerFunc(deps.User.Destroy)))
 
+	// JOBS (User-facing for monitoring)
+	mux.Handle("GET /jobs", userStack.Then(http.HandlerFunc(deps.Job.Index)))
+	mux.Handle("GET /jobs/{id}", userStack.Then(http.HandlerFunc(deps.Job.Show)))
+
 	// APPLICATIONS
 	mux.Handle("GET /applications", userStack.Then(http.HandlerFunc(deps.Application.Index)))
 	mux.Handle("GET /applications/{id}", userStack.Then(http.HandlerFunc(deps.Application.Show)))

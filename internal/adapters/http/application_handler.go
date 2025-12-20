@@ -65,6 +65,12 @@ func (h *ApplicationHandler) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	envVars, _ := h.svc.ListEnvVars(r.Context(), appID)
+	volumes, _ := h.svc.ListVolumes(r.Context(), appID)
+
+	app.EnvironmentVars = envVars
+	app.Volumes = volumes
+
 	JSONSuccess(w, http.StatusOK, APIResponse{
 		Message: "OK",
 		Data:    app,
@@ -255,6 +261,12 @@ func (h *ApplicationHandler) ListEnvVars(w http.ResponseWriter, r *http.Request)
 		}
 		JSONError(w, http.StatusInternalServerError, "failed to list environment variables")
 		return
+	}
+
+	for i := range envVars {
+		if !envVars[i].IsPreview {
+			envVars[i].Value = "***HIDDEN***"
+		}
 	}
 
 	JSONSuccess(w, http.StatusOK, APIResponse{

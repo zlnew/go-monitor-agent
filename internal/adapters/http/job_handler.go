@@ -31,6 +31,29 @@ func (h *JobHandler) Index(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *JobHandler) Show(w http.ResponseWriter, r *http.Request) {
+	jobID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		JSONError(w, http.StatusBadRequest, "invalid application id")
+		return
+	}
+
+	job, err := h.svc.GetByID(r.Context(), jobID)
+	if err != nil {
+		if errors.Is(err, domain.ErrJobNotFound) {
+			JSONError(w, http.StatusNotFound, "job not found")
+			return
+		}
+		JSONError(w, http.StatusInternalServerError, "failed to get job")
+		return
+	}
+
+	JSONSuccess(w, http.StatusOK, APIResponse{
+		Message: "OK",
+		Data:    job,
+	})
+}
+
 func (h *JobHandler) Start(w http.ResponseWriter, r *http.Request) {
 	paramID := r.PathValue("id")
 

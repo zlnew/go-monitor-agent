@@ -59,15 +59,16 @@ type JobFinishRequest struct {
 
 type JobRepository interface {
 	List(ctx context.Context) ([]Job, error)
+	GetByID(ctx context.Context, jobID int64) (*Job, error)
 	Create(ctx context.Context, j *Job) (*Job, error)
 	Delete(ctx context.Context, jobID int64) error
 	MarkRunning(ctx context.Context, jobID int64) (*Job, error)
 	MarkFinished(ctx context.Context, jobID int64, status JobStatus, outputLog *string) (*Job, error)
-	GetByID(ctx context.Context, jobID int64) (*Job, error)
 }
 
 type JobService interface {
 	Get(ctx context.Context) ([]Job, error)
+	GetByID(ctx context.Context, jobID int64) (*Job, error)
 	Create(ctx context.Context, j *Job) (*Job, error)
 	Delete(ctx context.Context, jobID int64) error
 	Start(ctx context.Context, jobID int64) (*Job, error)

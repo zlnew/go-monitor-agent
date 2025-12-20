@@ -57,6 +57,10 @@ func main() {
 	metricsService := metrics.NewService(metricsRepo, bus, log)
 	applicationService := application.NewService(applicationRepo, serverService, jobService, bus)
 
+	// Event Listeners
+	statusListener := application.NewStatusListener(applicationRepo, log)
+	statusListener.Register(bus)
+
 	// HTTP Handlers
 	serverHandler := http.NewServerHandler(serverService)
 	authHandler := http.NewAuthHandler(authService, cfg)

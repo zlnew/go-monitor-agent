@@ -182,6 +182,25 @@ func (r *ApplicationRepository) UpdateStatus(ctx context.Context, appID int64, s
 	return nil
 }
 
+func (r *ApplicationRepository) UpdateLastDeployment(ctx context.Context, appID int64) error {
+	query := `
+		UPDATE applications
+		SET last_deployment_at = $1
+		WHERE id = $2 AND deleted_at IS NULL
+	`
+
+	ct, err := r.db.Exec(ctx, query, time.Now().UTC(), appID)
+	if err != nil {
+		return fmt.Errorf("failed to update application last deployment: %w", err)
+	}
+
+	if ct.RowsAffected() == 0 {
+		return domain.ErrApplicationNotFound
+	}
+
+	return nil
+}
+
 // ============================================================================
 // ENVIRONMENT VARIABLES
 // ============================================================================

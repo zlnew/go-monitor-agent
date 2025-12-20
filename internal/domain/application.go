@@ -93,6 +93,7 @@ type ApplicationRepository interface {
 	Update(ctx context.Context, app *Application, appID int64) error
 	Delete(ctx context.Context, appID int64) error
 	UpdateStatus(ctx context.Context, appID int64, status ApplicationStatus) error
+	UpdateLastDeployment(ctx context.Context, appID int64) error
 
 	// Environment Variables
 	ListEnvVars(ctx context.Context, appID int64) ([]EnvironmentVariable, error)

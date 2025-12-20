@@ -69,6 +69,47 @@ func (r *JobRepository) List(ctx context.Context) ([]domain.Job, error) {
 	return jobs, nil
 }
 
+func (r *JobRepository) GetByID(ctx context.Context, jobID int64) (*domain.Job, error) {
+	query := `
+		SELECT
+			id,
+			server_id,
+			application_id,
+			job_type,
+			command_payload,
+			status,
+			output_log,
+			queued_at,
+			started_at,
+			finished_at
+		FROM server_jobs
+		WHERE id = $1 LIMIT 1
+	`
+
+	var j domain.Job
+	err := r.db.QueryRow(ctx, query, jobID).Scan(
+		&j.ID,
+		&j.ServerID,
+		&j.ApplicationID,
+		&j.JobType,
+		&j.CommandPayload,
+		&j.Status,
+		&j.OutputLog,
+		&j.QueuedAt,
+		&j.StartedAt,
+		&j.FinishedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrJobNotFound
+		}
+
+		return nil, err
+	}
+
+	return &j, nil
+}
+
 func (r *JobRepository) Create(ctx context.Context, j *domain.Job) (*domain.Job, error) {
 	query := `
 		INSERT INTO server_jobs
@@ -205,45 +246,4 @@ func (r *JobRepository) MarkFinished(
 	}
 
 	return &job, nil
-}
-
-func (r *JobRepository) GetByID(ctx context.Context, jobID int64) (*domain.Job, error) {
-	query := `
-		SELECT
-			id,
-			server_id,
-			application_id,
-			job_type,
-			command_payload,
-			status,
-			output_log,
-			queued_at,
-			started_at,
-			finished_at
-		FROM server_jobs
-		WHERE id = $1 LIMIT 1
-	`
-
-	var j domain.Job
-	err := r.db.QueryRow(ctx, query, jobID).Scan(
-		&j.ID,
-		&j.ServerID,
-		&j.ApplicationID,
-		&j.JobType,
-		&j.CommandPayload,
-		&j.Status,
-		&j.OutputLog,
-		&j.QueuedAt,
-		&j.StartedAt,
-		&j.FinishedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain.ErrJobNotFound
-		}
-
-		return nil, err
-	}
-
-	return &j, nil
 }
