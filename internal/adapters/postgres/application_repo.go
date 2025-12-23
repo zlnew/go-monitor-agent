@@ -120,7 +120,7 @@ func (r *ApplicationRepository) Update(ctx context.Context, app *domain.Applicat
 	query := `
 		UPDATE applications
 		SET name = $1, repo_url = $2, branch = $3, updated_at = $4
-		WHERE id = $6 AND deleted_at IS NULL
+		WHERE id = $5 AND deleted_at IS NULL
 	`
 
 	now := time.Now().UTC()
