@@ -108,7 +108,7 @@ func (w *JobWorker) fetchJobs(ctx context.Context) ([]domain.Job, error) {
 
 	var pendingJobs []domain.Job
 	for _, job := range response.Data {
-		if job.Status == string(domain.JobQueued) {
+		if job.Status == domain.JobQueued {
 			pendingJobs = append(pendingJobs, job)
 		}
 	}

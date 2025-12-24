@@ -1,5 +1,10 @@
 package domain
 
+type EventDeploymentCreated struct {
+	DeploymentID  int64 `json:"deployment_id"`
+	ApplicationID int64 `json:"application_id"`
+}
+
 type EventDeploymentStatusChanged struct {
 	DeploymentID  int64            `json:"deployment_id"`
 	ApplicationID int64            `json:"application_id"`

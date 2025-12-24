@@ -79,7 +79,10 @@ func (s *Service) Create(ctx context.Context, req domain.ApplicationCreateReques
 	}
 
 	if s.bus != nil {
-		s.bus.Publish("application_created", created)
+		s.bus.Publish("application_created", domain.EventApplicationCreated{
+			ApplicationID: app.ID,
+			ServerID:      app.ServerID,
+		})
 	}
 
 	return created, nil

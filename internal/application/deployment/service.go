@@ -42,6 +42,11 @@ func (s *Service) Create(ctx context.Context, req domain.DeploymentCreateRequest
 	}
 
 	if s.bus != nil {
+		s.bus.Publish("deployment_created", domain.EventDeploymentCreated{
+			DeploymentID:  created.ID,
+			ApplicationID: created.ApplicationID,
+		})
+
 		s.bus.Publish("deployment_status_changed", domain.EventDeploymentStatusChanged{
 			DeploymentID:  created.ID,
 			ApplicationID: created.ApplicationID,

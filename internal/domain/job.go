@@ -21,7 +21,7 @@ type Job struct {
 	DeploymentID   *int64          `json:"deployment_id"`
 	JobType        string          `json:"job_type"`
 	CommandPayload json.RawMessage `json:"command_payload"`
-	Status         string          `json:"status"`
+	Status         JobStatus       `json:"status"`
 	OutputLog      *string         `json:"output_log"`
 	QueuedAt       *time.Time      `json:"queued_at"`
 	StartedAt      *time.Time      `json:"started_at"`
