@@ -28,10 +28,11 @@ func (h *JobHandler) Index(w http.ResponseWriter, r *http.Request) {
 			Search:     GetString(q, "search", ""),
 			IsPaginate: GetBool(q, "paginate"),
 		},
+		TraceID:       GetUUID(q, "trace_id"),
 		ServerID:      GetUUID(q, "server_id"),
 		ApplicationID: GetInt64(q, "application_id"),
 		DeploymentID:  GetInt64(q, "deployment_id"),
-		JobType:       GetString(q, "job_type", ""),
+		Type:          GetString(q, "job_type", ""),
 		Statuses:      GetStringSlice(q, "statuses"),
 	}
 
@@ -41,24 +42,9 @@ func (h *JobHandler) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := make([]domain.JobResponse, 0, len(result.Data))
-	for _, j := range result.Data {
-		data = append(data, domain.JobResponse{
-			ID:            j.ID,
-			ServerID:      j.ServerID,
-			ApplicationID: j.ApplicationID,
-			DeploymentID:  j.DeploymentID,
-			JobType:       j.JobType,
-			Status:        j.Status,
-			QueuedAt:      j.QueuedAt,
-			StartedAt:     j.StartedAt,
-			FinishedAt:    j.FinishedAt,
-		})
-	}
-
 	JSONSuccess(w, http.StatusOK, APIResponse{
 		Message: "OK",
-		Data:    data,
+		Data:    result.Data,
 		Meta:    result.Meta,
 	})
 }
@@ -93,21 +79,9 @@ func (h *JobHandler) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := domain.JobResponse{
-		ID:            job.ID,
-		ApplicationID: job.ApplicationID,
-		DeploymentID:  job.DeploymentID,
-		JobType:       job.JobType,
-		Status:        job.Status,
-		OutputLog:     job.OutputLog,
-		QueuedAt:      job.QueuedAt,
-		StartedAt:     job.StartedAt,
-		FinishedAt:    job.FinishedAt,
-	}
-
 	JSONSuccess(w, http.StatusOK, APIResponse{
 		Message: "OK",
-		Data:    data,
+		Data:    job,
 	})
 }
 
@@ -157,7 +131,7 @@ func (h *JobHandler) Finish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job, err := h.svc.Finish(r.Context(), jobID, req.Status, &req.OutputLog)
+	job, err := h.svc.Finish(r.Context(), jobID, req.Status)
 	if err != nil {
 		if errors.Is(err, domain.ErrJobNotFound) {
 			JSONError(w, http.StatusNotFound, "job not found")

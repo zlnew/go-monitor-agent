@@ -16,6 +16,7 @@ import (
 	"horizonx-server/internal/application/auth"
 	"horizonx-server/internal/application/deployment"
 	"horizonx-server/internal/application/job"
+	logService "horizonx-server/internal/application/log"
 	"horizonx-server/internal/application/metrics"
 	"horizonx-server/internal/application/server"
 	"horizonx-server/internal/application/user"
@@ -44,6 +45,7 @@ func main() {
 	bus := event.New()
 
 	// Repositories
+	logRepo := postgres.NewLogRepository(dbPool)
 	serverRepo := postgres.NewServerRepository(dbPool)
 	userRepo := postgres.NewUserRepository(dbPool)
 	jobRepo := postgres.NewJobRepository(dbPool)
@@ -52,6 +54,7 @@ func main() {
 	deploymentRepo := postgres.NewDeploymentRepository(dbPool)
 
 	// Services
+	logService := logService.NewService(logRepo, bus)
 	serverService := server.NewService(serverRepo, bus)
 	authService := auth.NewService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
 	userService := user.NewService(userRepo)
@@ -68,6 +71,7 @@ func main() {
 	deploymentListener.Register(bus)
 
 	// HTTP Handlers
+	logHandler := http.NewLogHandler(logService)
 	serverHandler := http.NewServerHandler(serverService)
 	authHandler := http.NewAuthHandler(authService, cfg)
 	userHandler := http.NewUserHandler(userService)
@@ -90,11 +94,13 @@ func main() {
 	subscribers.Register(bus, wsUserhub)
 
 	router := http.NewRouter(cfg, &http.RouterDeps{
-		WsUser:      wsUserHandler,
-		WsAgent:     wsAgentHandler,
-		Server:      serverHandler,
+		WsUser:  wsUserHandler,
+		WsAgent: wsAgentHandler,
+
 		Auth:        authHandler,
 		User:        userHandler,
+		Server:      serverHandler,
+		Log:         logHandler,
 		Job:         jobHandler,
 		Metrics:     metricsHandler,
 		Application: applicationHandler,

@@ -16,10 +16,11 @@ type RouterDeps struct {
 	WsAgent *agentws.Handler
 
 	Auth        *AuthHandler
+	User        *UserHandler
+	Server      *ServerHandler
+	Log         *LogHandler
 	Job         *JobHandler
 	Metrics     *MetricsHandler
-	Server      *ServerHandler
-	User        *UserHandler
 	Application *ApplicationHandler
 	Deployment  *DeploymentHandler
 
@@ -53,12 +54,16 @@ func NewRouter(cfg *config.Config, deps *RouterDeps) http.Handler {
 	mux.Handle("POST /auth/logout", userStack.Then(http.HandlerFunc(deps.Auth.Logout)))
 
 	// AGENT ENDPOINTS
+	mux.Handle("POST /agent/logs", agentStack.Then(http.HandlerFunc(deps.Log.Store)))
 	mux.Handle("POST /agent/metrics", agentStack.Then(http.HandlerFunc(deps.Metrics.Ingest)))
 	mux.Handle("GET /agent/jobs", agentStack.Then(http.HandlerFunc(deps.Job.Pending)))
 	mux.Handle("POST /agent/jobs/{id}/start", agentStack.Then(http.HandlerFunc(deps.Job.Start)))
 	mux.Handle("POST /agent/jobs/{id}/finish", agentStack.Then(http.HandlerFunc(deps.Job.Finish)))
 	mux.Handle("POST /agent/deployments/{id}/commit-info", agentStack.Then(http.HandlerFunc(deps.Deployment.UpdateCommitInfo)))
-	mux.Handle("POST /agent/deployments/{id}/logs", agentStack.Then(http.HandlerFunc(deps.Deployment.UpdateLogs)))
+
+	// LOGS
+	mux.Handle("GET /logs", userStack.Then(http.HandlerFunc(deps.Log.Index)))
+	mux.Handle("GET /logs/{id}", userStack.Then(http.HandlerFunc(deps.Log.Show)))
 
 	// SERVERS
 	mux.Handle("GET /servers", userStack.Then(http.HandlerFunc(deps.Server.Index)))

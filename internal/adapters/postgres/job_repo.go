@@ -24,17 +24,18 @@ func (r *JobRepository) List(ctx context.Context, opts domain.JobListOptions) ([
 	baseQuery := `
 		SELECT
 			id,
+			trace_id,
 			server_id,
 			application_id,
 			deployment_id,
-			job_type,
-			command_payload,
+			type,
+			payload,
 			status,
-			output_log,
 			queued_at,
 			started_at,
-			finished_at
-		FROM server_jobs
+			finished_at,
+			expired_at
+		FROM jobs
 	`
 
 	args := []any{}
@@ -59,9 +60,9 @@ func (r *JobRepository) List(ctx context.Context, opts domain.JobListOptions) ([
 		argCounter++
 	}
 
-	if opts.JobType != "" {
-		conditions = append(conditions, fmt.Sprintf("job_type = $%d", argCounter))
-		args = append(args, opts.JobType)
+	if opts.Type != "" {
+		conditions = append(conditions, fmt.Sprintf("type = $%d", argCounter))
+		args = append(args, opts.Type)
 		argCounter++
 	}
 
@@ -83,7 +84,7 @@ func (r *JobRepository) List(ctx context.Context, opts domain.JobListOptions) ([
 
 	var total int64
 	if opts.IsPaginate {
-		countQuery := "SELECT COUNT(*) FROM server_jobs"
+		countQuery := "SELECT COUNT(*) FROM jobs"
 		if len(conditions) > 0 {
 			countQuery += " WHERE " + strings.Join(conditions, " AND ")
 		}
@@ -109,16 +110,17 @@ func (r *JobRepository) List(ctx context.Context, opts domain.JobListOptions) ([
 		var job domain.Job
 		if err := rows.Scan(
 			&job.ID,
+			&job.TraceID,
 			&job.ServerID,
 			&job.ApplicationID,
 			&job.DeploymentID,
-			&job.JobType,
-			&job.CommandPayload,
+			&job.Type,
+			&job.Payload,
 			&job.Status,
-			&job.OutputLog,
 			&job.QueuedAt,
 			&job.StartedAt,
 			&job.FinishedAt,
+			&job.ExpiredAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan jobs: %w", err)
 		}
@@ -136,14 +138,16 @@ func (r *JobRepository) GetPending(ctx context.Context) ([]*domain.Job, error) {
 	query := `
 		SELECT
 			id,
+			trace_id,
 			server_id,
 			application_id,
 			deployment_id,
-			job_type,
-			command_payload,
+			type,
+			payload,
 			status,
-			queued_at
-		FROM server_jobs
+			queued_at,
+			expired_at
+		FROM jobs
 		WHERE status = $1
 		ORDER BY queued_at ASC
 		LIMIT 30
@@ -159,13 +163,15 @@ func (r *JobRepository) GetPending(ctx context.Context) ([]*domain.Job, error) {
 		var j domain.Job
 		if err := rows.Scan(
 			&j.ID,
+			&j.TraceID,
 			&j.ServerID,
 			&j.ApplicationID,
 			&j.DeploymentID,
-			&j.JobType,
-			&j.CommandPayload,
+			&j.Type,
+			&j.Payload,
 			&j.Status,
 			&j.QueuedAt,
+			&j.ExpiredAt,
 		); err != nil {
 			return nil, err
 		}
@@ -184,33 +190,35 @@ func (r *JobRepository) GetByID(ctx context.Context, jobID int64) (*domain.Job, 
 	query := `
 		SELECT
 			id,
+			trace_id,
 			server_id,
 			application_id,
 			deployment_id,
-			job_type,
-			command_payload,
+			type,
+			payload,
 			status,
-			output_log,
 			queued_at,
 			started_at,
-			finished_at
-		FROM server_jobs
+			finished_at,
+			expired_at
+		FROM jobs
 		WHERE id = $1 LIMIT 1
 	`
 
 	var j domain.Job
 	err := r.db.QueryRow(ctx, query, jobID).Scan(
 		&j.ID,
+		&j.TraceID,
 		&j.ServerID,
 		&j.ApplicationID,
 		&j.DeploymentID,
-		&j.JobType,
-		&j.CommandPayload,
+		&j.Type,
+		&j.Payload,
 		&j.Status,
-		&j.OutputLog,
 		&j.QueuedAt,
 		&j.StartedAt,
 		&j.FinishedAt,
+		&j.ExpiredAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -225,18 +233,20 @@ func (r *JobRepository) GetByID(ctx context.Context, jobID int64) (*domain.Job, 
 
 func (r *JobRepository) Create(ctx context.Context, j *domain.Job) (*domain.Job, error) {
 	query := `
-		INSERT INTO server_jobs
-		(server_id, application_id, deployment_id, job_type, command_payload)
+		INSERT INTO jobs
+		(trace_id, server_id, application_id, deployment_id, type, payload, expired_at)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, queued_at
 	`
 
 	err := r.db.QueryRow(ctx, query,
+		j.TraceID,
 		j.ServerID,
 		j.ApplicationID,
 		j.DeploymentID,
-		j.JobType,
-		j.CommandPayload,
+		j.Type,
+		j.Payload,
+		j.ExpiredAt,
 	).Scan(
 		&j.ID,
 		&j.QueuedAt,
@@ -250,7 +260,7 @@ func (r *JobRepository) Create(ctx context.Context, j *domain.Job) (*domain.Job,
 
 func (r *JobRepository) Delete(ctx context.Context, jobID int64) error {
 	query := `
-		DELETE FROM server_jobs
+		DELETE FROM jobs
 		WHERE id = $1
 		RETURNING id
 	`
@@ -269,7 +279,7 @@ func (r *JobRepository) Delete(ctx context.Context, jobID int64) error {
 
 func (r *JobRepository) MarkRunning(ctx context.Context, jobID int64) (*domain.Job, error) {
 	query := `
-		UPDATE server_jobs
+		UPDATE jobs
 		SET
 			status = 'running',
 			started_at = NOW()
@@ -277,31 +287,33 @@ func (r *JobRepository) MarkRunning(ctx context.Context, jobID int64) (*domain.J
 		  AND status = 'queued'
 		RETURNING
 			id,
+			trace_id,
 			server_id,
 			application_id,
 			deployment_id,
-			job_type,
-			command_payload,
+			type,
+			payload,
 			status,
-			output_log,
 			queued_at,
 			started_at,
-			finished_at
+			finished_at,
+			expired_at
 	`
 
 	var job domain.Job
 	err := r.db.QueryRow(ctx, query, jobID).Scan(
 		&job.ID,
+		&job.TraceID,
 		&job.ServerID,
 		&job.ApplicationID,
 		&job.DeploymentID,
-		&job.JobType,
-		&job.CommandPayload,
+		&job.Type,
+		&job.Payload,
 		&job.Status,
-		&job.OutputLog,
 		&job.QueuedAt,
 		&job.StartedAt,
 		&job.FinishedAt,
+		&job.ExpiredAt,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -318,43 +330,43 @@ func (r *JobRepository) MarkFinished(
 	ctx context.Context,
 	jobID int64,
 	status domain.JobStatus,
-	outputLog *string,
 ) (*domain.Job, error) {
 	query := `
-		UPDATE server_jobs
+		UPDATE jobs
 		SET
 			status = $1,
-			output_log = $2,
 			finished_at = NOW()
-		WHERE id = $3
+		WHERE id = $2
 		  AND status = 'running'
 		RETURNING
 			id,
+			trace_id,
 			server_id,
 			application_id,
 			deployment_id,
-			job_type,
-			command_payload,
+			type,
+			payload,
 			status,
-			output_log,
 			queued_at,
 			started_at,
-			finished_at
+			finished_at,
+			expired_at
 	`
 
 	var job domain.Job
-	err := r.db.QueryRow(ctx, query, status, outputLog, jobID).Scan(
+	err := r.db.QueryRow(ctx, query, status, jobID).Scan(
 		&job.ID,
+		&job.TraceID,
 		&job.ServerID,
 		&job.ApplicationID,
 		&job.DeploymentID,
-		&job.JobType,
-		&job.CommandPayload,
+		&job.Type,
+		&job.Payload,
 		&job.Status,
-		&job.OutputLog,
 		&job.QueuedAt,
 		&job.StartedAt,
 		&job.FinishedAt,
+		&job.ExpiredAt,
 	)
 
 	if err == pgx.ErrNoRows {

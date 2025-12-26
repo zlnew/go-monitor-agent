@@ -2,9 +2,7 @@ package agentws
 
 import (
 	"context"
-	"encoding/json"
 
-	"horizonx-server/internal/domain"
 	"horizonx-server/internal/logger"
 
 	"github.com/google/uuid"
@@ -18,7 +16,6 @@ type Router struct {
 
 	register   chan *Client
 	unregister chan *Client
-	commands   chan *domain.WsAgentCommand
 
 	log logger.Logger
 }
@@ -32,7 +29,6 @@ func NewRouter(parent context.Context, log logger.Logger) *Router {
 		agents:     make(map[uuid.UUID]*Client),
 		register:   make(chan *Client, 64),
 		unregister: make(chan *Client, 64),
-		commands:   make(chan *domain.WsAgentCommand, 1024),
 		log:        log,
 	}
 }
@@ -60,44 +56,10 @@ func (r *Router) Run() {
 			delete(r.agents, a.ID)
 			close(agent.send)
 			r.log.Info("ws: agent unregistered", "id", a.ID)
-
-		case cmd := <-r.commands:
-			r.handleCommand(cmd)
 		}
 	}
 }
 
 func (r *Router) Stop() {
 	r.cancel()
-}
-
-func (r *Router) SendCommand(cmd *domain.WsAgentCommand) {
-	select {
-	case r.commands <- cmd:
-	case <-r.ctx.Done():
-	default:
-		r.log.Warn("ws: command buffer full, dropping command", "command", cmd.CommandType)
-	}
-}
-
-func (r *Router) handleCommand(cmd *domain.WsAgentCommand) {
-	agent, ok := r.agents[cmd.TargetServerID]
-	if !ok {
-		r.log.Warn("ws: target agent not connected", "server_id", cmd.TargetServerID)
-		return
-	}
-
-	message, err := json.Marshal(cmd)
-	if err != nil {
-		r.log.Error("ws: failed to marshal server command", "error", err)
-		return
-	}
-
-	select {
-	case agent.send <- message:
-		r.log.Info("ws: command sent to agent", "server_id", agent.ID, "command", cmd.CommandType)
-	default:
-		r.log.Warn("ws: agent channel full, force unregister", "server_id", agent.ID)
-		r.unregister <- agent
-	}
 }

@@ -34,7 +34,7 @@ func (l *Listener) handleJobStarted(event any) {
 		return
 	}
 
-	if evt.DeploymentID == nil || evt.ApplicationID == nil || evt.JobType != domain.JobTypeDeployApp {
+	if evt.DeploymentID == nil || evt.ApplicationID == nil || evt.Type != domain.JobTypeAppDeploy {
 		return
 	}
 
@@ -58,7 +58,7 @@ func (l *Listener) handleJobFinished(event any) {
 		return
 	}
 
-	if evt.DeploymentID == nil || evt.ApplicationID == nil || evt.JobType != domain.JobTypeDeployApp {
+	if evt.DeploymentID == nil || evt.ApplicationID == nil || evt.Type != domain.JobTypeAppDeploy {
 		return
 	}
 

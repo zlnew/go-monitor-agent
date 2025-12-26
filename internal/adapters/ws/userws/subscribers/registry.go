@@ -5,6 +5,10 @@ import (
 )
 
 func Register(bus EventBus, hub *userws.Hub) {
+	// Log Events
+	logReceived := NewLogReceived(hub)
+	bus.Subscribe("log_received", logReceived.Handle)
+
 	// Server Events
 	serverStatusChanged := NewServerStatusChanged(hub)
 	serverMetricsReceived := NewServerMetricsReceived(hub)
@@ -29,11 +33,9 @@ func Register(bus EventBus, hub *userws.Hub) {
 	// Deployment Events
 	deploymentCreated := NewDeploymentCreated(hub)
 	deploymentStatusChanged := NewDeploymentStatusChanged(hub)
-	deploymentLogsUpdated := NewDeploymentLogsUpdated(hub)
 	deploymentCommitInfoReceived := NewDeploymentCommitInfoReceived(hub)
 
 	bus.Subscribe("deployment_created", deploymentCreated.Handle)
 	bus.Subscribe("deployment_status_changed", deploymentStatusChanged.Handle)
-	bus.Subscribe("deployment_logs_updated", deploymentLogsUpdated.Handle)
 	bus.Subscribe("deployment_commit_info_received", deploymentCommitInfoReceived.Handle)
 }

@@ -24,7 +24,6 @@ type Deployment struct {
 	CommitHash    *string          `json:"commit_hash,omitempty"`
 	CommitMessage *string          `json:"commit_message,omitempty"`
 	Status        DeploymentStatus `json:"status"`
-	BuildLogs     *string          `json:"build_logs,omitempty"`
 	TriggeredAt   time.Time        `json:"triggered_at"`
 	StartedAt     *time.Time       `json:"started_at,omitempty"`
 	FinishedAt    *time.Time       `json:"finished_at,omitempty"`
@@ -64,7 +63,6 @@ type DeploymentRepository interface {
 	Finish(ctx context.Context, deploymentID int64) error
 	UpdateStatus(ctx context.Context, deploymentID int64, status DeploymentStatus) (*Deployment, error)
 	UpdateCommitInfo(ctx context.Context, deploymentID int64, commitHash string, commitMessage string) (*Deployment, error)
-	UpdateLogs(ctx context.Context, deploymentID int64, logs string, isPartial bool) (*Deployment, error)
 }
 
 type DeploymentService interface {
@@ -75,5 +73,4 @@ type DeploymentService interface {
 	Finish(ctx context.Context, deploymentID int64) error
 	UpdateStatus(ctx context.Context, deploymentID int64, status DeploymentStatus) error
 	UpdateCommitInfo(ctx context.Context, deploymentID int64, commitHash string, commitMessage string) error
-	UpdateLogs(ctx context.Context, deploymentID int64, logs string, isPartial bool) error
 }

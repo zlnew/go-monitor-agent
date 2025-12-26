@@ -1,34 +1,55 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type EventJobCreated struct {
+	TraceID       uuid.UUID `json:"trace_id"`
 	JobID         int64     `json:"job_id"`
 	ServerID      uuid.UUID `json:"server_id"`
 	ApplicationID *int64    `json:"application_id"`
 	DeploymentID  *int64    `json:"deployment_id"`
-	JobType       string    `json:"job_type"`
+	Type          JobType   `json:"type"`
 }
 
 type EventJobStarted struct {
+	TraceID       uuid.UUID `json:"trace_id"`
 	JobID         int64     `json:"job_id"`
 	ServerID      uuid.UUID `json:"server_id"`
 	ApplicationID *int64    `json:"application_id"`
 	DeploymentID  *int64    `json:"deployment_id"`
-	JobType       string    `json:"job_type"`
+	Type          JobType   `json:"type"`
 }
 
 type EventJobFinished struct {
+	TraceID       uuid.UUID `json:"trace_id"`
 	JobID         int64     `json:"job_id"`
 	ServerID      uuid.UUID `json:"server_id"`
 	ApplicationID *int64    `json:"application_id"`
 	DeploymentID  *int64    `json:"deployment_id"`
-	JobType       string    `json:"job_type"`
+	Type          JobType   `json:"type"`
 	Status        JobStatus `json:"status"`
-	OutputLog     *string   `json:"output_log"`
 }
 
 type EventJobStatusChanged struct {
 	JobID  int64     `json:"job_id"`
 	Status JobStatus `json:"status"`
+}
+
+type EventLogEmitted struct {
+	Timestamp time.Time
+	Level     LogLevel
+	Source    LogSource
+	Action    LogAction
+	Message   string
+	Context   *LogContext
+}
+
+type EventCommitInfoEmitted struct {
+	DeploymentID int64
+	Hash         string
+	Message      string
 }

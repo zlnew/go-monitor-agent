@@ -155,7 +155,6 @@ func (r *DeploymentRepository) GetByID(ctx context.Context, deploymentID int64) 
 			d.commit_hash,
 			d.commit_message,
 			d.status, 
-		  d.build_logs,
 			d.deployed_by,
 			d.triggered_at,
 			d.started_at,
@@ -184,7 +183,6 @@ func (r *DeploymentRepository) GetByID(ctx context.Context, deploymentID int64) 
 		&d.CommitHash,
 		&d.CommitMessage,
 		&d.Status,
-		&d.BuildLogs,
 		&d.DeployedBy,
 		&d.TriggeredAt,
 		&d.StartedAt,
@@ -319,40 +317,6 @@ func (r *DeploymentRepository) UpdateCommitInfo(ctx context.Context, deploymentI
 			return nil, domain.ErrDeploymentNotFound
 		}
 		return nil, fmt.Errorf("failed to update deployment commit info: %w", err)
-	}
-
-	return &d, nil
-}
-
-func (r *DeploymentRepository) UpdateLogs(ctx context.Context, deploymentID int64, logs string, isPartial bool) (*domain.Deployment, error) {
-	var query string
-	if isPartial {
-		query = `
-			UPDATE deployments
-			SET build_logs = COALESCE(build_logs, '') || $1
-			WHERE id = $2
-			RETURNING id, application_id, build_logs
-		`
-	} else {
-		query = `
-			UPDATE deployments
-			SET build_logs = $1
-			WHERE id = $2
-			RETURNING id, application_id, build_logs
-		`
-	}
-
-	var d domain.Deployment
-	err := r.db.QueryRow(ctx, query, logs, deploymentID).Scan(
-		&d.ID,
-		&d.ApplicationID,
-		&d.BuildLogs,
-	)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, domain.ErrDeploymentNotFound
-		}
-		return nil, fmt.Errorf("failed to update deployment build logs: %w", err)
 	}
 
 	return &d, nil

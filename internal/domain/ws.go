@@ -19,8 +19,7 @@ type WsServerEvent struct {
 	Payload any    `json:"payload,omitempty"`
 }
 
-type WsAgentCommand struct {
-	TargetServerID uuid.UUID         `json:"target_server_id"`
-	CommandType    string            `json:"command_type"`
-	Payload        JobCommandPayload `json:"payload"`
+type WsServerMessage struct {
+	TargetServerID uuid.UUID       `json:"target_server_id"`
+	Payload        json.RawMessage `json:"payload"`
 }

@@ -57,7 +57,7 @@ func main() {
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	// 1. WebSocket connection for real-time commands
+	// 1. WebSocket connection
 	g.Go(func() error {
 		return wsAgent.Run(gCtx)
 	})
@@ -67,7 +67,7 @@ func main() {
 		return runMetricsCollector(gCtx, cfg, sampler, reporter, appLog)
 	})
 
-	// 3. Job worker (polls and executes jobs)
+	// 3. Job worker
 	g.Go(func() error {
 		return jobWorker.Start(gCtx)
 	})

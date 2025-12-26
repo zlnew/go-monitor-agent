@@ -5,7 +5,6 @@ CREATE TABLE IF NOT EXISTS deployments (
     commit_hash VARCHAR(40),
     commit_message TEXT,
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    build_logs TEXT,
 
     deployed_by BIGINT,
 

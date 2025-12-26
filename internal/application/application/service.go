@@ -194,11 +194,11 @@ func (s *Service) Deploy(ctx context.Context, appID int64, deployedBy int64) (*d
 	}
 
 	job := &domain.Job{
-		ServerID:       app.ServerID,
-		ApplicationID:  &appID,
-		DeploymentID:   &deployment.ID,
-		JobType:        domain.JobTypeDeployApp,
-		CommandPayload: payloadBytes,
+		ServerID:      app.ServerID,
+		ApplicationID: &appID,
+		DeploymentID:  &deployment.ID,
+		Type:          domain.JobTypeAppDeploy,
+		Payload:       payloadBytes,
 	}
 
 	if _, err := s.jobSvc.Create(ctx, job); err != nil {
@@ -233,10 +233,10 @@ func (s *Service) Start(ctx context.Context, appID int64) error {
 	}
 
 	job := &domain.Job{
-		ServerID:       app.ServerID,
-		ApplicationID:  &appID,
-		JobType:        domain.JobTypeStartApp,
-		CommandPayload: payloadBytes,
+		ServerID:      app.ServerID,
+		ApplicationID: &appID,
+		Type:          domain.JobTypeAppStart,
+		Payload:       payloadBytes,
 	}
 
 	_, err = s.jobSvc.Create(ctx, job)
@@ -263,10 +263,10 @@ func (s *Service) Stop(ctx context.Context, appID int64) error {
 	}
 
 	job := &domain.Job{
-		ServerID:       app.ServerID,
-		ApplicationID:  &appID,
-		JobType:        domain.JobTypeStopApp,
-		CommandPayload: payloadBytes,
+		ServerID:      app.ServerID,
+		ApplicationID: &appID,
+		Type:          domain.JobTypeAppStop,
+		Payload:       payloadBytes,
 	}
 
 	_, err = s.jobSvc.Create(ctx, job)
@@ -293,10 +293,10 @@ func (s *Service) Restart(ctx context.Context, appID int64) error {
 	}
 
 	job := &domain.Job{
-		ServerID:       app.ServerID,
-		ApplicationID:  &appID,
-		JobType:        domain.JobTypeRestartApp,
-		CommandPayload: payloadBytes,
+		ServerID:      app.ServerID,
+		ApplicationID: &appID,
+		Type:          domain.JobTypeAppRestart,
+		Payload:       payloadBytes,
 	}
 
 	_, err = s.jobSvc.Create(ctx, job)

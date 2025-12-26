@@ -126,21 +126,3 @@ func (s *Service) UpdateCommitInfo(ctx context.Context, deploymentID int64, comm
 
 	return nil
 }
-
-func (s *Service) UpdateLogs(ctx context.Context, deploymentID int64, logs string, isPartial bool) error {
-	d, err := s.repo.UpdateLogs(ctx, deploymentID, logs, isPartial)
-	if err != nil {
-		return err
-	}
-
-	if s.bus != nil {
-		s.bus.Publish("deployment_logs_updated", domain.EventDeploymentLogsUpdated{
-			DeploymentID:  d.ID,
-			ApplicationID: d.ApplicationID,
-			Logs:          logs,
-			IsPartial:     isPartial,
-		})
-	}
-
-	return nil
-}

@@ -11,13 +11,6 @@ type EventDeploymentStatusChanged struct {
 	Status        DeploymentStatus `json:"status"`
 }
 
-type EventDeploymentLogsUpdated struct {
-	DeploymentID  int64  `json:"deployment_id"`
-	ApplicationID int64  `json:"application_id"`
-	Logs          string `json:"logs"`
-	IsPartial     bool   `json:"is_partial"`
-}
-
 type EventDeploymentCommitInfoReceived struct {
 	DeploymentID  int64  `json:"deployment_id"`
 	ApplicationID int64  `json:"application_id"`

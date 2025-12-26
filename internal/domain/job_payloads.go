@@ -1,9 +1,5 @@
 package domain
 
-type JobCommandPayload struct {
-	JobID int64
-}
-
 type DeployAppPayload struct {
 	ApplicationID int64             `json:"application_id"`
 	DeploymentID  int64             `json:"deployment_id"`
@@ -23,10 +19,3 @@ type StopAppPayload struct {
 type RestartAppPayload struct {
 	ApplicationID int64 `json:"application_id"`
 }
-
-const (
-	JobTypeDeployApp  = "deploy_app"
-	JobTypeStartApp   = "start_app"
-	JobTypeStopApp    = "stop_app"
-	JobTypeRestartApp = "restart_app"
-)

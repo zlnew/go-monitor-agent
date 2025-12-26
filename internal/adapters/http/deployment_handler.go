@@ -114,31 +114,3 @@ func (h *DeploymentHandler) UpdateCommitInfo(w http.ResponseWriter, r *http.Requ
 		Message: "Commit Info updated",
 	})
 }
-
-func (h *DeploymentHandler) UpdateLogs(w http.ResponseWriter, r *http.Request) {
-	deploymentID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		JSONError(w, http.StatusBadRequest, "invalid deployment id")
-		return
-	}
-
-	var req domain.DeploymentLogsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		JSONError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if _, err := h.svc.GetByID(r.Context(), deploymentID); err != nil {
-		JSONError(w, http.StatusNotFound, "deployment not found")
-		return
-	}
-
-	if err := h.svc.UpdateLogs(r.Context(), deploymentID, req.Logs, req.IsPartial); err != nil {
-		JSONError(w, http.StatusInternalServerError, "failed to update logs")
-		return
-	}
-
-	JSONSuccess(w, http.StatusOK, APIResponse{
-		Message: "Logs updated",
-	})
-}

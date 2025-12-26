@@ -68,10 +68,11 @@ func (s *JobService) Create(ctx context.Context, j *domain.Job) (*domain.Job, er
 	if s.bus != nil {
 		s.bus.Publish("job_created", domain.EventJobCreated{
 			JobID:         job.ID,
+			TraceID:       job.TraceID,
 			ServerID:      job.ServerID,
 			ApplicationID: job.ApplicationID,
 			DeploymentID:  job.DeploymentID,
-			JobType:       job.JobType,
+			Type:          job.Type,
 		})
 
 		s.bus.Publish("job_status_changed", domain.EventJobStatusChanged{
@@ -96,10 +97,11 @@ func (s *JobService) Start(ctx context.Context, jobID int64) (*domain.Job, error
 	if s.bus != nil {
 		s.bus.Publish("job_started", domain.EventJobStarted{
 			JobID:         job.ID,
+			TraceID:       job.TraceID,
 			ServerID:      job.ServerID,
 			ApplicationID: job.ApplicationID,
 			DeploymentID:  job.DeploymentID,
-			JobType:       job.JobType,
+			Type:          job.Type,
 		})
 
 		s.bus.Publish("job_status_changed", domain.EventJobStatusChanged{
@@ -111,8 +113,8 @@ func (s *JobService) Start(ctx context.Context, jobID int64) (*domain.Job, error
 	return job, nil
 }
 
-func (s *JobService) Finish(ctx context.Context, jobID int64, status domain.JobStatus, result *string) (*domain.Job, error) {
-	job, err := s.repo.MarkFinished(ctx, jobID, status, result)
+func (s *JobService) Finish(ctx context.Context, jobID int64, status domain.JobStatus) (*domain.Job, error) {
+	job, err := s.repo.MarkFinished(ctx, jobID, status)
 	if err != nil {
 		return nil, err
 	}
@@ -120,12 +122,12 @@ func (s *JobService) Finish(ctx context.Context, jobID int64, status domain.JobS
 	if s.bus != nil {
 		s.bus.Publish("job_finished", domain.EventJobFinished{
 			JobID:         job.ID,
+			TraceID:       job.TraceID,
 			ServerID:      job.ServerID,
 			ApplicationID: job.ApplicationID,
 			DeploymentID:  job.DeploymentID,
-			JobType:       job.JobType,
+			Type:          job.Type,
 			Status:        status,
-			OutputLog:     result,
 		})
 
 		s.bus.Publish("job_status_changed", domain.EventJobStatusChanged{

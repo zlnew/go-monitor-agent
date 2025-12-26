@@ -14,54 +14,53 @@ var (
 	ErrInvalidJobState = errors.New("invalid job state")
 )
 
-type JobStatus string
+type (
+	JobType   string
+	JobStatus string
+)
+
+const (
+	JobTypeAppDeploy  JobType = "app_deploy"
+	JobTypeAppStart   JobType = "app_start"
+	JobTypeAppStop    JobType = "app_stop"
+	JobTypeAppRestart JobType = "app_restart"
+)
 
 const (
 	JobQueued  JobStatus = "queued"
 	JobRunning JobStatus = "running"
 	JobSuccess JobStatus = "success"
 	JobFailed  JobStatus = "failed"
+	JobExpired JobStatus = "expired"
 )
 
 type Job struct {
-	ID             int64           `json:"id"`
-	ServerID       uuid.UUID       `json:"server_id"`
-	ApplicationID  *int64          `json:"application_id"`
-	DeploymentID   *int64          `json:"deployment_id"`
-	JobType        string          `json:"job_type"`
-	CommandPayload json.RawMessage `json:"command_payload"`
-	Status         JobStatus       `json:"status"`
-	OutputLog      *string         `json:"output_log"`
-	QueuedAt       *time.Time      `json:"queued_at"`
-	StartedAt      *time.Time      `json:"started_at"`
-	FinishedAt     *time.Time      `json:"finished_at"`
-}
-
-type JobResponse struct {
-	ID            int64      `json:"id"`
-	ServerID      uuid.UUID  `json:"server_id"`
-	ApplicationID *int64     `json:"application_id"`
-	DeploymentID  *int64     `json:"deployment_id"`
-	JobType       string     `json:"job_type"`
-	Status        JobStatus  `json:"status"`
-	OutputLog     *string    `json:"output_log"`
-	QueuedAt      *time.Time `json:"queued_at"`
-	StartedAt     *time.Time `json:"started_at"`
-	FinishedAt    *time.Time `json:"finished_at"`
+	ID            int64           `json:"id"`
+	TraceID       uuid.UUID       `json:"trace_id"`
+	ServerID      uuid.UUID       `json:"server_id"`
+	ApplicationID *int64          `json:"application_id"`
+	DeploymentID  *int64          `json:"deployment_id"`
+	Type          JobType         `json:"type"`
+	Payload       json.RawMessage `json:"payload"`
+	Status        JobStatus       `json:"status"`
+	QueuedAt      *time.Time      `json:"queued_at"`
+	StartedAt     *time.Time      `json:"started_at"`
+	FinishedAt    *time.Time      `json:"finished_at"`
+	ExpiredAt     *time.Time      `json:"expired_at"`
 }
 
 type JobListOptions struct {
 	ListOptions
+	TraceID       *uuid.UUID `json:"trace_id,omitempty"`
 	ServerID      *uuid.UUID `json:"server_id,omitempty"`
 	ApplicationID *int64     `json:"application_id,omitempty"`
 	DeploymentID  *int64     `json:"deployment_id,omitempty"`
-	JobType       string     `json:"job_type,omitempty"`
+	Type          string     `json:"type,omitempty"`
 	Statuses      []string   `json:"statuses,omitempty"`
 }
 
 type JobFinishRequest struct {
-	Status    JobStatus `json:"status" validate:"required"`
-	OutputLog string    `json:"output_log" validate:"required"`
+	Status JobStatus `json:"status"`
 }
 
 type JobRepository interface {
@@ -71,7 +70,7 @@ type JobRepository interface {
 	Create(ctx context.Context, j *Job) (*Job, error)
 	Delete(ctx context.Context, jobID int64) error
 	MarkRunning(ctx context.Context, jobID int64) (*Job, error)
-	MarkFinished(ctx context.Context, jobID int64, status JobStatus, outputLog *string) (*Job, error)
+	MarkFinished(ctx context.Context, jobID int64, status JobStatus) (*Job, error)
 }
 
 type JobService interface {
@@ -81,5 +80,5 @@ type JobService interface {
 	Create(ctx context.Context, j *Job) (*Job, error)
 	Delete(ctx context.Context, jobID int64) error
 	Start(ctx context.Context, jobID int64) (*Job, error)
-	Finish(ctx context.Context, jobID int64, status JobStatus, outputLog *string) (*Job, error)
+	Finish(ctx context.Context, jobID int64, status JobStatus) (*Job, error)
 }
