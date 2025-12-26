@@ -35,8 +35,9 @@ type EventJobFinished struct {
 }
 
 type EventJobStatusChanged struct {
-	JobID  int64     `json:"job_id"`
-	Status JobStatus `json:"status"`
+	TraceID uuid.UUID `json:"trace_id"`
+	JobID   int64     `json:"job_id"`
+	Status  JobStatus `json:"status"`
 }
 
 type EventLogEmitted struct {

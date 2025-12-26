@@ -9,14 +9,16 @@ import (
 )
 
 type Service struct {
-	repo domain.DeploymentRepository
-	bus  *event.Bus
+	repo    domain.DeploymentRepository
+	logRepo domain.LogRepository
+	bus     *event.Bus
 }
 
-func NewService(repo domain.DeploymentRepository, bus *event.Bus) domain.DeploymentService {
+func NewService(repo domain.DeploymentRepository, logRepo domain.LogRepository, bus *event.Bus) domain.DeploymentService {
 	return &Service{
-		repo: repo,
-		bus:  bus,
+		repo:    repo,
+		logRepo: logRepo,
+		bus:     bus,
 	}
 }
 
@@ -52,7 +54,30 @@ func (s *Service) List(ctx context.Context, opts domain.DeploymentListOptions) (
 }
 
 func (s *Service) GetByID(ctx context.Context, deploymentID int64) (*domain.Deployment, error) {
-	return s.repo.GetByID(ctx, deploymentID)
+	deployment, err := s.repo.GetByID(ctx, deploymentID)
+	if err != nil {
+		return nil, err
+	}
+
+	logs, _, err := s.logRepo.List(ctx, domain.LogListOptions{
+		ListOptions:  domain.ListOptions{Limit: 1000},
+		DeploymentID: &deployment.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(logs) > 0 {
+		deployment.Logs = make([]domain.Log, 0, len(logs))
+		for _, l := range logs {
+			if l == nil {
+				continue
+			}
+			deployment.Logs = append(deployment.Logs, *l)
+		}
+	}
+
+	return deployment, err
 }
 
 func (s *Service) Create(ctx context.Context, req domain.DeploymentCreateRequest) (*domain.Deployment, error) {

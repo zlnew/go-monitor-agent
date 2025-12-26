@@ -50,6 +50,12 @@ func (r *LogRepository) List(ctx context.Context, opts domain.LogListOptions) ([
 		argCounter++
 	}
 
+	if opts.JobID != nil {
+		conditions = append(conditions, fmt.Sprintf("job_id = $%d", argCounter))
+		args = append(args, *opts.JobID)
+		argCounter++
+	}
+
 	if opts.ServerID != nil {
 		conditions = append(conditions, fmt.Sprintf("server_id = $%d", argCounter))
 		args = append(args, *opts.ServerID)
@@ -102,7 +108,7 @@ func (r *LogRepository) List(ctx context.Context, opts domain.LogListOptions) ([
 		baseQuery += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	baseQuery += " ORDER BY timestamp DESC"
+	baseQuery += " ORDER BY timestamp ASC"
 
 	var total int64
 	if opts.IsPaginate {

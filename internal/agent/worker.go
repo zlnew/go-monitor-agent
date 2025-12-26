@@ -82,7 +82,7 @@ func (w *JobWorker) processJob(ctx context.Context, job domain.Job) error {
 		return err
 	}
 
-	execErr := w.execute(ctx, &job)
+	execErr := w.execute(job)
 
 	status := domain.JobSuccess
 	if execErr != nil {
@@ -100,48 +100,71 @@ func (w *JobWorker) processJob(ctx context.Context, job domain.Job) error {
 	return execErr
 }
 
-func (w *JobWorker) execute(ctx context.Context, job *domain.Job) error {
+func (w *JobWorker) execute(job domain.Job) error {
+	logCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	logCh := make(chan domain.EventLogEmitted, 200)
+	commitCh := make(chan domain.EventCommitInfoEmitted, 10)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for evt := range logCh {
+			err := w.client.SendLog(logCtx, &domain.LogEmitRequest{
+				Timestamp:     evt.Timestamp,
+				Level:         evt.Level,
+				Source:        evt.Source,
+				Action:        evt.Action,
+				TraceID:       job.TraceID,
+				JobID:         &job.ID,
+				ServerID:      &job.ServerID,
+				ApplicationID: job.ApplicationID,
+				DeploymentID:  job.DeploymentID,
+				Message:       evt.Message,
+				Context:       evt.Context,
+			})
+			if err != nil {
+				w.log.Error("send log failed", "error", err)
+			}
+		}
+	}()
+
+	go func() {
+		for evt := range commitCh {
+			_ = w.client.SendCommitInfo(
+				logCtx,
+				evt.DeploymentID,
+				evt.Hash,
+				evt.Message,
+			)
+		}
+	}()
+
 	bus := event.New()
 
-	bus.Subscribe("log_emitted", func(e any) {
-		evt := e.(domain.EventLogEmitted)
-		if err := w.client.SendLog(ctx, &domain.LogEmitRequest{
-			Timestamp:     evt.Timestamp,
-			Level:         evt.Level,
-			Source:        evt.Source,
-			Action:        evt.Action,
-			TraceID:       job.TraceID,
-			JobID:         &job.ID,
-			ServerID:      &job.ServerID,
-			ApplicationID: job.ApplicationID,
-			DeploymentID:  job.DeploymentID,
-			Message:       evt.Message,
-			Context:       evt.Context,
-		}); err != nil {
-			w.log.Error("failed to send log: %w", err)
-		}
+	bus.Subscribe("log", func(e any) {
+		logCh <- e.(domain.EventLogEmitted)
 	})
 
-	bus.Subscribe("commit_info_emitted", func(e any) {
-		evt := e.(domain.EventCommitInfoEmitted)
-		if err := w.client.SendCommitInfo(
-			ctx,
-			evt.DeploymentID,
-			evt.Hash,
-			evt.Message,
-		); err != nil {
-			w.log.Error("failed to send commit info: %w", err)
-		}
+	bus.Subscribe("commit_info", func(e any) {
+		commitCh <- e.(domain.EventCommitInfoEmitted)
 	})
 
 	onEmit := func(e any) {
 		switch e.(type) {
 		case domain.EventLogEmitted:
-			bus.Publish("log_emitted", e)
+			bus.Publish("log", e)
 		case domain.EventCommitInfoEmitted:
-			bus.Publish("commit_info_emitted", e)
+			bus.Publish("commit_info", e)
 		}
 	}
 
-	return w.executor.Execute(ctx, job, onEmit)
+	err := w.executor.Execute(context.Background(), &job, onEmit)
+
+	close(logCh)
+	close(commitCh)
+	<-done
+
+	return err
 }

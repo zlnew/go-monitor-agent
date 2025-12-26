@@ -133,7 +133,7 @@ func (c *Client) SendLog(ctx context.Context, req *domain.LogEmitRequest) error 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("failed to send log, status: %d", resp.StatusCode)
 	}
 

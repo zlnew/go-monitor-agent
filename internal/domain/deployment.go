@@ -30,6 +30,7 @@ type Deployment struct {
 	DeployedBy    *int64           `json:"deployed_by,omitempty"`
 
 	Deployer *User `json:"deployer,omitempty"`
+	Logs     []Log `json:"logs,omitempty"`
 }
 
 type DeploymentListOptions struct {

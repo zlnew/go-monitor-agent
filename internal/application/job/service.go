@@ -9,14 +9,16 @@ import (
 )
 
 type JobService struct {
-	repo domain.JobRepository
-	bus  *event.Bus
+	repo    domain.JobRepository
+	logRepo domain.LogRepository
+	bus     *event.Bus
 }
 
-func NewService(repo domain.JobRepository, events *event.Bus) domain.JobService {
+func NewService(repo domain.JobRepository, logRepo domain.LogRepository, events *event.Bus) domain.JobService {
 	return &JobService{
-		repo: repo,
-		bus:  events,
+		repo:    repo,
+		logRepo: logRepo,
+		bus:     events,
 	}
 }
 
@@ -56,7 +58,30 @@ func (s *JobService) GetPending(ctx context.Context) ([]*domain.Job, error) {
 }
 
 func (s *JobService) GetByID(ctx context.Context, jobID int64) (*domain.Job, error) {
-	return s.repo.GetByID(ctx, jobID)
+	job, err := s.repo.GetByID(ctx, jobID)
+	if err != nil {
+		return nil, err
+	}
+
+	logs, _, err := s.logRepo.List(ctx, domain.LogListOptions{
+		ListOptions: domain.ListOptions{Limit: 1000},
+		JobID:       &job.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(logs) > 0 {
+		job.Logs = make([]domain.Log, 0, len(logs))
+		for _, l := range logs {
+			if l == nil {
+				continue
+			}
+			job.Logs = append(job.Logs, *l)
+		}
+	}
+
+	return job, err
 }
 
 func (s *JobService) Create(ctx context.Context, j *domain.Job) (*domain.Job, error) {
@@ -76,8 +101,9 @@ func (s *JobService) Create(ctx context.Context, j *domain.Job) (*domain.Job, er
 		})
 
 		s.bus.Publish("job_status_changed", domain.EventJobStatusChanged{
-			JobID:  job.ID,
-			Status: job.Status,
+			TraceID: job.TraceID,
+			JobID:   job.ID,
+			Status:  job.Status,
 		})
 	}
 
@@ -105,8 +131,9 @@ func (s *JobService) Start(ctx context.Context, jobID int64) (*domain.Job, error
 		})
 
 		s.bus.Publish("job_status_changed", domain.EventJobStatusChanged{
-			JobID:  job.ID,
-			Status: job.Status,
+			TraceID: job.TraceID,
+			JobID:   job.ID,
+			Status:  job.Status,
 		})
 	}
 
@@ -131,8 +158,9 @@ func (s *JobService) Finish(ctx context.Context, jobID int64, status domain.JobS
 		})
 
 		s.bus.Publish("job_status_changed", domain.EventJobStatusChanged{
-			JobID:  job.ID,
-			Status: job.Status,
+			TraceID: job.TraceID,
+			JobID:   job.ID,
+			Status:  job.Status,
 		})
 	}
 

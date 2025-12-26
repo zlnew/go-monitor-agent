@@ -234,8 +234,16 @@ func (r *JobRepository) GetByID(ctx context.Context, jobID int64) (*domain.Job, 
 func (r *JobRepository) Create(ctx context.Context, j *domain.Job) (*domain.Job, error) {
 	query := `
 		INSERT INTO jobs
-		(trace_id, server_id, application_id, deployment_id, type, payload, expired_at)
-		VALUES ($1, $2, $3, $4, $5)
+		(
+			trace_id,
+			server_id,
+			application_id,
+			deployment_id,
+			type,
+			payload,
+			expired_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, queued_at
 	`
 

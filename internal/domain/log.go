@@ -40,12 +40,12 @@ const (
 )
 
 const (
-	StepGitClone      LogStep = "git_clone"
-	StepDockerBuild   LogStep = "docker_build"
-	StepDockerStart   LogStep = "docker_start"
-	StepDockerStop    LogStep = "docker_stop"
-	StepDockerRestart LogStep = "docker_restart"
-	StepHealthCheck   LogStep = "health_check"
+	StepGitClone          LogStep = "git_clone"
+	StepDockerBuild       LogStep = "docker_build"
+	StepDockerStart       LogStep = "docker_start"
+	StepDockerStop        LogStep = "docker_stop"
+	StepDockerRestart     LogStep = "docker_restart"
+	StepDockerHealthCheck LogStep = "docker_health_check"
 )
 
 const (
@@ -75,6 +75,7 @@ type Log struct {
 type LogListOptions struct {
 	ListOptions
 	TraceID       *uuid.UUID `json:"trace_id,omitempty"`
+	JobID         *int64     `json:"job_id,omitempty"`
 	ServerID      *uuid.UUID `json:"server_id,omitempty"`
 	ApplicationID *int64     `json:"application_id,omitempty"`
 	DeploymentID  *int64     `json:"deployment_id,omitempty"`

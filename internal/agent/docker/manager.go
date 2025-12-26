@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"horizonx-server/internal/logger"
 )
@@ -170,19 +171,38 @@ func (m *Manager) RunStream(ctx context.Context, workDir string, onStream Stream
 	errCount := 2
 	done := make(chan error, errCount)
 
-	stream := func(r io.Reader, isErr bool) {
+	var stderrBuf []string
+	var mu sync.Mutex
+
+	stream := func(r io.Reader) {
 		scanner := bufio.NewScanner(r)
 		scanner.Buffer(make([]byte, 1024), 1024*1024)
 
 		for scanner.Scan() {
-			onStream(scanner.Text(), isErr)
+			raw := scanner.Text()
+			raw = strings.ReplaceAll(raw, "\r\n", "\n")
+			raw = strings.ReplaceAll(raw, "\r", "\n")
+
+			lines := strings.SplitSeq(raw, "\n")
+			for line := range lines {
+				line = strings.TrimSpace(line)
+				if line == "" {
+					continue
+				}
+
+				onStream(line, false)
+
+				mu.Lock()
+				stderrBuf = append(stderrBuf, line)
+				mu.Unlock()
+			}
 		}
 
 		done <- scanner.Err()
 	}
 
-	go stream(stdout, false)
-	go stream(stderr, true)
+	go stream(stdout)
+	go stream(stderr)
 
 	for range errCount {
 		if err := <-done; err != nil {
@@ -191,6 +211,12 @@ func (m *Manager) RunStream(ctx context.Context, workDir string, onStream Stream
 	}
 
 	if err := cmd.Wait(); err != nil {
+		mu.Lock()
+		for _, line := range stderrBuf {
+			onStream(line, true)
+		}
+		mu.Unlock()
+
 		return fmt.Errorf("docker command failed: %w", err)
 	}
 

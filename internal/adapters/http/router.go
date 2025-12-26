@@ -63,7 +63,6 @@ func NewRouter(cfg *config.Config, deps *RouterDeps) http.Handler {
 
 	// LOGS
 	mux.Handle("GET /logs", userStack.Then(http.HandlerFunc(deps.Log.Index)))
-	mux.Handle("GET /logs/{id}", userStack.Then(http.HandlerFunc(deps.Log.Show)))
 
 	// SERVERS
 	mux.Handle("GET /servers", userStack.Then(http.HandlerFunc(deps.Server.Index)))

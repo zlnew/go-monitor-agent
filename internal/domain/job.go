@@ -47,6 +47,8 @@ type Job struct {
 	StartedAt     *time.Time      `json:"started_at"`
 	FinishedAt    *time.Time      `json:"finished_at"`
 	ExpiredAt     *time.Time      `json:"expired_at"`
+
+	Logs []Log `json:"logs,omitempty"`
 }
 
 type JobListOptions struct {

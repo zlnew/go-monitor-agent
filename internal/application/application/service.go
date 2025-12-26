@@ -194,6 +194,7 @@ func (s *Service) Deploy(ctx context.Context, appID int64, deployedBy int64) (*d
 	}
 
 	job := &domain.Job{
+		TraceID:       uuid.New(),
 		ServerID:      app.ServerID,
 		ApplicationID: &appID,
 		DeploymentID:  &deployment.ID,
@@ -233,6 +234,7 @@ func (s *Service) Start(ctx context.Context, appID int64) error {
 	}
 
 	job := &domain.Job{
+		TraceID:       uuid.New(),
 		ServerID:      app.ServerID,
 		ApplicationID: &appID,
 		Type:          domain.JobTypeAppStart,
@@ -263,6 +265,7 @@ func (s *Service) Stop(ctx context.Context, appID int64) error {
 	}
 
 	job := &domain.Job{
+		TraceID:       uuid.New(),
 		ServerID:      app.ServerID,
 		ApplicationID: &appID,
 		Type:          domain.JobTypeAppStop,
@@ -293,6 +296,7 @@ func (s *Service) Restart(ctx context.Context, appID int64) error {
 	}
 
 	job := &domain.Job{
+		TraceID:       uuid.New(),
 		ServerID:      app.ServerID,
 		ApplicationID: &appID,
 		Type:          domain.JobTypeAppRestart,

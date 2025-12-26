@@ -69,8 +69,8 @@ func (e *Executor) emitLog(
 	step domain.LogStep,
 	stream domain.LogStream,
 	line string,
-) *domain.EventLogEmitted {
-	return &domain.EventLogEmitted{
+) domain.EventLogEmitted {
+	return domain.EventLogEmitted{
 		Timestamp: time.Now().UTC(),
 		Level:     level,
 		Source:    source,

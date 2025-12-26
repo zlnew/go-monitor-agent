@@ -58,9 +58,9 @@ func main() {
 	serverService := server.NewService(serverRepo, bus)
 	authService := auth.NewService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
 	userService := user.NewService(userRepo)
-	jobService := job.NewService(jobRepo, bus)
+	jobService := job.NewService(jobRepo, logRepo, bus)
 	metricsService := metrics.NewService(metricsRepo, bus, log)
-	deploymentService := deployment.NewService(deploymentRepo, bus)
+	deploymentService := deployment.NewService(deploymentRepo, logRepo, bus)
 	applicationService := application.NewService(applicationRepo, serverService, jobService, deploymentService, bus)
 
 	// Event Listeners

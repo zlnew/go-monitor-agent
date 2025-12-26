@@ -2,9 +2,7 @@ package http
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
-	"strconv"
 
 	"horizonx-server/internal/domain"
 )
@@ -46,29 +44,6 @@ func (h *LogHandler) Index(w http.ResponseWriter, r *http.Request) {
 		Message: "OK",
 		Data:    result.Data,
 		Meta:    result.Meta,
-	})
-}
-
-func (h *LogHandler) Show(w http.ResponseWriter, r *http.Request) {
-	logID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		JSONError(w, http.StatusBadRequest, "invalid log id")
-		return
-	}
-
-	log, err := h.svc.GetByID(r.Context(), logID)
-	if err != nil {
-		if errors.Is(err, domain.ErrJobNotFound) {
-			JSONError(w, http.StatusNotFound, "log not found")
-			return
-		}
-		JSONError(w, http.StatusInternalServerError, "failed to get log")
-		return
-	}
-
-	JSONSuccess(w, http.StatusOK, APIResponse{
-		Message: "OK",
-		Data:    log,
 	})
 }
 
