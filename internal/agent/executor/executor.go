@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"horizonx-server/internal/agent/docker"
@@ -90,7 +91,13 @@ func (e *Executor) deployApp(ctx context.Context, job *domain.Job, emit EmitHand
 	}
 
 	appID := payload.ApplicationID
+	appDir := e.git.GetAppDir(appID)
 	action := domain.ActionAppDeploy
+
+	// Create app directory
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
+		return err
+	}
 
 	// Git clone or pull
 	if _, err := e.git.CloneOrPull(ctx, appID, payload.RepoURL, payload.Branch, e.emitLogHandler(

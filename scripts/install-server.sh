@@ -8,12 +8,29 @@ set -e
 INSTALL_DIR="/usr/local/bin/horizonx-server"
 CONFIG_DIR="/etc/horizonx/server.env"
 LOG_DIR="/var/log/horizonx"
-BIN_SOURCE="./bin/horizonx-server"
-MIGRATE_BIN="./bin/horizonx-migrate"
-SEED_BIN="./bin/horizonx-seed"
+BIN_SOURCE="./bin/server"
+MIGRATE_BIN="./bin/migrate"
+SEED_BIN="./bin/seed"
 SERVICE_NAME="horizonx-server"
 USER_NAME="horizonx"
 GROUP_NAME="horizonx"
+
+# -----------------------------
+# Parse options
+# -----------------------------
+SEED=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --seed)
+            SEED=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
 
 # -----------------------------
 # Create user/group if missing
@@ -38,6 +55,9 @@ touch "$LOG_DIR/server.log" "$LOG_DIR/server.error.log"
 # Set ownership
 chown -R "$USER_NAME:$GROUP_NAME" "$(dirname "$INSTALL_DIR")" "$(dirname "$CONFIG_DIR")" "$LOG_DIR"
 
+# Stop service
+systemctl stop "$SERVICE_NAME"
+
 # -----------------------------
 # Install server binary
 # -----------------------------
@@ -54,7 +74,7 @@ if [ ! -f "$CONFIG_DIR" ]; then
   cat > "$CONFIG_DIR" <<EOF
 HTTP_ADDR=":3000"
 ALLOWED_ORIGINS="http://localhost:5173,http://localhost:5174"
-DATABASE_URL="postgres://postgres:postgres@localhost:5432/horizonx?sslmode=disable"
+DATABASE_URL="postgres://postgres:@localhost:5432/horizonx?sslmode=disable"
 JWT_SECRET="secret"
 JWT_EXPIRY="24h"
 DB_ADMIN_EMAIL="admin@horizonx.local"
@@ -76,20 +96,26 @@ EOF
 fi
 
 # -----------------------------
+# Load environment variables safely
+# -----------------------------
+set -o allexport
+source "$CONFIG_DIR"
+set +o allexport
+
+# -----------------------------
 # Run migration
 # -----------------------------
 if [ -x "$MIGRATE_BIN" ]; then
     echo "[*] Running migrations..."
-    "$MIGRATE_BIN" --config "$CONFIG_DIR"
+    "$MIGRATE_BIN" -op=up -dsn="$DATABASE_URL"
 fi
 
 # -----------------------------
 # Optional seeding
 # -----------------------------
-read -p "[?] Do you want to seed dummy users for login? (y/N): " SEED_OPTION
-if [[ "$SEED_OPTION" =~ ^[Yy]$ ]] && [ -x "$SEED_BIN" ]; then
-    echo "[*] Seeding dummy users..."
-    "$SEED_BIN" --config "$CONFIG_DIR"
+if [ "$SEED" = true ] && [ -x "$SEED_BIN" ]; then
+    echo "[*] Seeding dummy admin user..."
+    "$SEED_BIN" -dsn="$DATABASE_URL"
 fi
 
 # -----------------------------

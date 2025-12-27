@@ -8,7 +8,7 @@ set -e
 INSTALL_DIR="/usr/local/bin/horizonx-agent"
 CONFIG_DIR="/etc/horizonx/agent.env"
 LOG_DIR="/var/log/horizonx"
-BIN_SOURCE="./bin/horizonx-agent"
+BIN_SOURCE="./bin/agent"
 SERVICE_NAME="horizonx-agent"
 
 # -----------------------------
@@ -26,6 +26,9 @@ touch "$LOG_DIR/agent.log" "$LOG_DIR/agent.error.log"
 chown root:root "$INSTALL_DIR" 2>/dev/null || true
 chown root:root "$CONFIG_DIR" 2>/dev/null || true
 chown root:root "$LOG_DIR"/*.log
+
+# Stop service
+systemctl stop "$SERVICE_NAME"
 
 # -----------------------------
 # Install binary

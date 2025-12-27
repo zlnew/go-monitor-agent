@@ -89,8 +89,9 @@ func (c *Command) execute(ctx context.Context, handler StreamHandler) error {
 		}
 	}()
 
-	cmdErr := cmd.Wait()
 	wg.Wait()
+
+	cmdErr := cmd.Wait()
 	close(errChan)
 
 	var streamErrs []error
