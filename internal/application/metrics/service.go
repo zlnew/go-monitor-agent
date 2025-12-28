@@ -54,10 +54,10 @@ func (s *Service) Ingest(m domain.Metrics) error {
 	bufferSize := len(s.buffer)
 	s.bufferMu.Unlock()
 
-	s.log.Info("metric added to buffer", "buffer_size", bufferSize)
+	s.log.Debug("metrics added to buffer", "buffer_size", bufferSize)
 
 	if bufferSize >= s.cfg.MetricsBatchSize {
-		s.log.Info("buffer size reached, forcing flush", "size", bufferSize)
+		s.log.Debug("buffer size reached, forcing flush", "size", bufferSize)
 		go s.safeFlush()
 	}
 
