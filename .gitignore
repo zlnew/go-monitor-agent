@@ -1,8 +1,6 @@
 bin*
 
 .env
-.env.server.prod
-.env.agent.prod
 
 AGENTS.md
 GEMINI.md
