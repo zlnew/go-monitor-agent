@@ -12,6 +12,7 @@ import (
 	"horizonx-server/internal/config"
 	"horizonx-server/internal/domain"
 	"horizonx-server/internal/logger"
+	"horizonx-server/internal/system"
 
 	"github.com/gorilla/websocket"
 )
@@ -96,6 +97,8 @@ func (a *Agent) start(ctx context.Context) error {
 
 	a.conn = conn
 	a.log.Info("ws connected to server", "url", a.cfg.AgentTargetWsURL)
+
+	go a.sendServerOSInfo()
 
 	sessionCtx, cancel := context.WithCancel(ctx)
 	pumpDone := make(chan error, 2)
@@ -208,5 +211,41 @@ func (a *Agent) writePump(ctx context.Context) error {
 				return err
 			}
 		}
+	}
+}
+
+func (a *Agent) sendServerOSInfo() {
+	system := system.NewReader(a.log)
+
+	osInfo := domain.OSInfo{
+		Hostname:      system.Hostname(),
+		Name:          system.OsName(),
+		Arch:          system.Arch(),
+		KernelVersion: system.KernelVersion(),
+	}
+
+	payloadBytes, err := json.Marshal(osInfo)
+	if err != nil {
+		a.log.Error("ws: failed to marshal OS info payload", "error", err.Error())
+		return
+	}
+
+	rawMessage := &domain.WsAgentMessage{
+		ServerID: a.cfg.AgentServerID,
+		Event:    "server_os_info",
+		Payload:  payloadBytes,
+	}
+
+	message, err := json.Marshal(rawMessage)
+	if err != nil {
+		a.log.Error("ws: failed to marshal full WS message", "error", err.Error())
+		return
+	}
+
+	select {
+	case a.send <- message:
+		a.log.Debug("ws: sent server OS info")
+	default:
+		a.log.Warn("ws: send channel full, dropping server OS info")
 	}
 }

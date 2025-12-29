@@ -24,6 +24,35 @@ func NewClient(cfg *config.Config) *Client {
 	}
 }
 
+func (c *Client) UpdateServerOSInfo(ctx context.Context, req domain.OSInfo) error {
+	url := fmt.Sprintf("%s/agent/server/os-info", c.cfg.AgentTargetAPIURL)
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.cfg.AgentServerID.String()+"."+c.cfg.AgentServerAPIToken)
+
+	resp, err := c.http.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("failed to update server os info, status: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
 func (c *Client) GetPendingJobs(ctx context.Context) ([]domain.Job, error) {
 	url := c.cfg.AgentTargetAPIURL + "/agent/jobs"
 

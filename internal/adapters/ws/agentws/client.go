@@ -3,6 +3,7 @@ package agentws
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"horizonx-server/internal/domain"
@@ -74,13 +75,37 @@ func (a *Client) readPump() {
 		select {
 		case <-a.ctx.Done():
 			return
+
 		default:
-			_, _, err := a.conn.ReadMessage()
+			_, message, err := a.conn.ReadMessage()
 			if err != nil {
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 					a.log.Warn("ws: agent disconnected unexpected", "error", err)
 				}
 				return
+			}
+
+			var msg domain.WsAgentMessage
+			if err := json.Unmarshal(message, &msg); err != nil {
+				a.log.Error("ws: invalid agent message", "error", err)
+				continue
+			}
+
+			switch msg.Event {
+			case "server_os_info":
+				var osInfo domain.OSInfo
+				if err := json.Unmarshal(msg.Payload, &osInfo); err != nil {
+					a.log.Error("ws: failed to unmarshal OS info payload", "error", err)
+					break
+				}
+
+				if err := a.svc.UpdateOSInfo(context.Background(), a.ID, osInfo); err != nil {
+					a.log.Error("ws: failed to update server os info", "error", err)
+					break
+				}
+
+			default:
+				a.log.Debug("ws: unknown agent message event", "event", msg.Event)
 			}
 		}
 	}

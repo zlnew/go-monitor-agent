@@ -99,6 +99,10 @@ func (s *Service) Update(ctx context.Context, req domain.ServerSaveRequest, serv
 	return s.repo.Update(ctx, data, serverID)
 }
 
+func (s *Service) UpdateOSInfo(ctx context.Context, serverID uuid.UUID, osInfo domain.OSInfo) error {
+	return s.repo.UpdateOSInfo(ctx, serverID, osInfo)
+}
+
 func (s *Service) Delete(ctx context.Context, serverID uuid.UUID) error {
 	if _, err := s.repo.GetByID(ctx, serverID); err != nil {
 		return err

@@ -240,6 +240,25 @@ func (r *ServerRepository) Update(ctx context.Context, s *domain.Server, serverI
 	return nil
 }
 
+func (r *ServerRepository) UpdateOSInfo(ctx context.Context, serverID uuid.UUID, osInfo domain.OSInfo) error {
+	query := `
+		UPDATE servers
+		SET os_info = $2, updated_at = $3
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+
+	now := time.Now().UTC()
+	ct, err := r.db.Exec(ctx, query, serverID, osInfo, now)
+	if err != nil {
+		return fmt.Errorf("failed to update server os info: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return fmt.Errorf("server with ID %s not found or deleted", serverID.String())
+	}
+
+	return nil
+}
+
 func (r *ServerRepository) Delete(ctx context.Context, serverID uuid.UUID) error {
 	query := `UPDATE servers SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL`
 

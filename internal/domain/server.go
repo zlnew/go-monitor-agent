@@ -38,6 +38,7 @@ type ServerRepository interface {
 	GetByToken(ctx context.Context, token string) (*Server, error)
 	Create(ctx context.Context, s *Server) (*Server, error)
 	Update(ctx context.Context, s *Server, serverID uuid.UUID) error
+	UpdateOSInfo(ctx context.Context, serverID uuid.UUID, osInfo OSInfo) error
 	Delete(ctx context.Context, serverID uuid.UUID) error
 	UpdateStatus(ctx context.Context, serverID uuid.UUID, isOnline bool) error
 }
@@ -47,6 +48,7 @@ type ServerService interface {
 	GetByID(ctx context.Context, serverID uuid.UUID) (*Server, error)
 	Register(ctx context.Context, req ServerSaveRequest) (*Server, string, error)
 	Update(ctx context.Context, req ServerSaveRequest, serverID uuid.UUID) error
+	UpdateOSInfo(ctx context.Context, serverID uuid.UUID, osInfo OSInfo) error
 	Delete(ctx context.Context, serverID uuid.UUID) error
 	AuthorizeAgent(ctx context.Context, serverID uuid.UUID, secret string) (*Server, error)
 	UpdateStatus(ctx context.Context, serverID uuid.UUID, status bool) error

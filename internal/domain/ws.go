@@ -23,3 +23,9 @@ type WsServerMessage struct {
 	TargetServerID uuid.UUID       `json:"target_server_id"`
 	Payload        json.RawMessage `json:"payload"`
 }
+
+type WsAgentMessage struct {
+	ServerID uuid.UUID       `json:"server_id"`
+	Event    string          `json:"event"`
+	Payload  json.RawMessage `json:"payload"`
+}
