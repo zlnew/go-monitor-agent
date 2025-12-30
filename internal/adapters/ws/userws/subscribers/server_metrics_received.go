@@ -1,6 +1,8 @@
 package subscribers
 
 import (
+	"fmt"
+
 	"horizonx-server/internal/adapters/ws/userws"
 	"horizonx-server/internal/domain"
 )
@@ -20,7 +22,7 @@ func (s *ServerMetricsReceived) Handle(event any) {
 	}
 
 	s.hub.Broadcast(&domain.WsServerEvent{
-		Channel: "server_metrics",
+		Channel: fmt.Sprintf("server_metrics:%s", evt.ServerID.String()),
 		Event:   "server_metrics_received",
 		Payload: evt,
 	})

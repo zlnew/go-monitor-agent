@@ -40,6 +40,7 @@ func NewService(cfg *config.Config, repo domain.MetricsRepository, bus *event.Bu
 	}
 
 	go svc.backgroundFlusher()
+	go svc.backgroundBroadcaster()
 
 	return svc
 }
@@ -59,10 +60,6 @@ func (s *Service) Ingest(serverID uuid.UUID, m domain.Metrics) error {
 	if bufferSize >= s.cfg.MetricsBatchSize {
 		s.log.Debug("buffer size reached, forcing flush", "size", bufferSize)
 		go s.safeFlush()
-	}
-
-	if s.bus != nil {
-		s.bus.Publish("server_metrics_received", m)
 	}
 
 	return nil
@@ -124,4 +121,27 @@ func (s *Service) flush() {
 	}
 
 	s.log.Debug("metrics flushed successfully", "count", len(batch))
+}
+
+func (s *Service) backgroundBroadcaster() {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		s.broadcastLatest()
+	}
+}
+
+func (s *Service) broadcastLatest() {
+	s.latestMu.Lock()
+	defer s.latestMu.Unlock()
+
+	if s.bus == nil || len(s.latest) == 0 {
+		return
+	}
+
+	for _, m := range s.latest {
+		s.bus.Publish("server_metrics_received", m)
+	}
+	s.log.Debug("broadcasted latest metrics", "count", len(s.latest))
 }
