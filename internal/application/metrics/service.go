@@ -68,11 +68,11 @@ func NewService(cfg *config.Config, repo domain.MetricsRepository, bus *event.Bu
 
 func (s *Service) Ingest(m domain.Metrics) error {
 	sid := m.ServerID
-	now := time.Now().UTC()
+	at := m.RecordedAt
 
 	s.updateLatest(m)
-	s.recordCPUUsage(sid, m.CPU.Usage.EMA, now)
-	s.recordNetSpeed(sid, m.Network.RXSpeedMBs.EMA, m.Network.TXSpeedMBs.EMA, now)
+	s.recordCPUUsage(sid, m.CPU.Usage.EMA, at)
+	s.recordNetSpeed(sid, m.Network.RXSpeedMBs.EMA, m.Network.TXSpeedMBs.EMA, at)
 
 	s.bufferMu.Lock()
 	s.buffer = append(s.buffer, m)
