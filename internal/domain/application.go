@@ -61,6 +61,11 @@ type ApplicationUpdateRequest struct {
 	EnvVars []EnvironmentVariableRequest `json:"env_vars" validate:"omitempty,dive"`
 }
 
+type ApplicationHealth struct {
+	ApplicationID int64             `json:"application_id"`
+	Status        ApplicationStatus `json:"status"`
+}
+
 type EnvironmentVariable struct {
 	ID            int64     `json:"id"`
 	ApplicationID int64     `json:"application_id"`

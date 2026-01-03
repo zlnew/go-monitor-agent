@@ -160,6 +160,17 @@ func (w *JobWorker) execute(job domain.Job) error {
 		}
 	})
 
+	bus.Subscribe("app_healths", func(event any) {
+		reports, ok := event.([]domain.ApplicationHealth)
+		if !ok {
+			return
+		}
+
+		if err := w.client.SendAppHealthReports(ctx, reports); err != nil {
+			w.log.Error("failed to send application health reports", "error", err)
+		}
+	})
+
 	bus.Subscribe("log", func(event any) {
 		evt, ok := event.(domain.EventLogEmitted)
 		if !ok {
@@ -182,6 +193,8 @@ func (w *JobWorker) execute(job domain.Job) error {
 		switch event.(type) {
 		case *domain.Metrics:
 			bus.Publish("metrics", event)
+		case []domain.ApplicationHealth:
+			bus.Publish("app_healths", event)
 		case domain.EventLogEmitted:
 			bus.Publish("log", event)
 		case domain.EventCommitInfoEmitted:

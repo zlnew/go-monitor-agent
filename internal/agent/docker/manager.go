@@ -17,6 +17,14 @@ type Manager struct {
 	workDir string
 }
 
+type Container struct {
+	ID      string `json:"ID"`
+	Name    string `json:"Name"`
+	Port    string `json:"Port"`
+	Project string `json:"Project"`
+	State   string `json:"State"`
+}
+
 func NewManager(workDir string) *Manager {
 	return &Manager{workDir: workDir}
 }
@@ -81,8 +89,13 @@ func (m *Manager) ComposeLogs(ctx context.Context, appID int64, tail int, handle
 	return cmd.Run(ctx, handlers...)
 }
 
-func (m *Manager) ComposePs(ctx context.Context, appID int64, handlers ...command.StreamHandler) (string, error) {
-	cmd := command.NewCommand(m.GetAppDir(appID), "docker", "compose", "ps")
+func (m *Manager) ComposePs(ctx context.Context, appID int64, json bool, handlers ...command.StreamHandler) (string, error) {
+	args := []string{"compose", "ps"}
+	if json {
+		args = append(args, "--format", "json")
+	}
+
+	cmd := command.NewCommand(m.GetAppDir(appID), "docker", args...)
 	return cmd.Run(ctx, handlers...)
 }
 

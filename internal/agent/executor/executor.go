@@ -58,6 +58,8 @@ func (e *Executor) Execute(ctx context.Context, job *domain.Job, emit EmitHandle
 	case domain.JobTypeMetricsCollect:
 		emit(e.metrics())
 		return nil
+	case domain.JobTypeAppHealthCheck:
+		return e.checkAppHealths(ctx, job, emit)
 	case domain.JobTypeAppDeploy:
 		return e.deployApp(ctx, job, emit)
 	case domain.JobTypeAppStart:
@@ -106,6 +108,50 @@ func (e *Executor) logFatalHandler(
 			Line:   message,
 		},
 	})
+}
+
+func (e *Executor) checkAppHealths(ctx context.Context, job *domain.Job, emit EmitHandler) error {
+	var payload domain.AppHealthCheckPayload
+	if err := json.Unmarshal(job.Payload, &payload); err != nil {
+		return err
+	}
+
+	action := domain.ActionAppHealthCheck
+	step := domain.StepDockerHealthCheck
+
+	var reports []domain.ApplicationHealth
+
+	for _, appID := range payload.ApplicationsIDs {
+		output, err := e.docker.ComposePs(ctx, appID, true)
+		if err != nil {
+			e.logFatalHandler(
+				fmt.Sprintf("failed to check application health, %s", err.Error()),
+				emit,
+				action,
+				step,
+			)
+			return err
+		}
+
+		var c docker.Container
+		if err := json.Unmarshal([]byte(output), &c); err != nil {
+			return err
+		}
+
+		status := domain.AppStatusFailed
+		if c.State == "running" {
+			status = domain.AppStatusRunning
+		}
+
+		reports = append(reports, domain.ApplicationHealth{
+			ApplicationID: appID,
+			Status:        status,
+		})
+	}
+
+	emit(reports)
+
+	return nil
 }
 
 func (e *Executor) deployApp(ctx context.Context, job *domain.Job, emit EmitHandler) error {
