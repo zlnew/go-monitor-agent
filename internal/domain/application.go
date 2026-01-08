@@ -23,6 +23,7 @@ const (
 	AppStatusRunning    ApplicationStatus = "running"
 	AppStatusStopped    ApplicationStatus = "stopped"
 	AppStatusFailed     ApplicationStatus = "failed"
+	AppStatusUnknown    ApplicationStatus = "unknown"
 )
 
 type Application struct {

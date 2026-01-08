@@ -147,8 +147,18 @@ func (s *Service) Delete(ctx context.Context, appID int64) error {
 		return err
 	}
 
-	if app.Status != domain.AppStatusStopped {
-		return fmt.Errorf("cannot delete running application, stop it first")
+	targets := []string{
+		string(domain.AppStatusRunning),
+		string(domain.AppStatusDeploying),
+		string(domain.AppStatusStarting),
+		string(domain.AppStatusRestarting),
+		string(domain.AppStatusStopping),
+	}
+	if domain.ContainsAny(string(app.Status), targets) {
+		return fmt.Errorf(
+			"application cannot be deleted while it is %s; stop the application first",
+			app.Status,
+		)
 	}
 
 	return s.repo.Delete(ctx, appID)

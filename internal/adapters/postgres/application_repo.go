@@ -156,7 +156,7 @@ func (r *ApplicationRepository) Create(ctx context.Context, app *domain.Applicat
 		app.Name,
 		app.RepoURL,
 		app.Branch,
-		domain.AppStatusStopped,
+		domain.AppStatusUnknown,
 		now,
 		now,
 	).Scan(&app.ID, &app.CreatedAt, &app.UpdatedAt)

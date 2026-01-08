@@ -139,6 +139,14 @@ func (e *Executor) checkAppHealths(ctx context.Context, job *domain.Job, emit Em
 			continue
 		}
 
+		if output == "" {
+			reports = append(reports, domain.ApplicationHealth{
+				ApplicationID: appID,
+				Status:        domain.AppStatusUnknown,
+			})
+			continue
+		}
+
 		var c docker.Container
 		if err := json.Unmarshal([]byte(output), &c); err != nil {
 			e.logFatalHandler(
@@ -183,11 +191,11 @@ func (e *Executor) checkAppHealths(ctx context.Context, job *domain.Job, emit Em
 				status = domain.AppStatusFailed
 			}
 		case "paused":
-			status = domain.AppStatusStopped
+			status = domain.AppStatusUnknown
 		case "dead":
 			status = domain.AppStatusFailed
 		default:
-			status = domain.AppStatusFailed
+			status = domain.AppStatusUnknown
 		}
 
 		reports = append(reports, domain.ApplicationHealth{
