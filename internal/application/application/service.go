@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/event"
+	"horizonx/internal/domain"
+	"horizonx/internal/event"
 
 	"github.com/google/uuid"
 )

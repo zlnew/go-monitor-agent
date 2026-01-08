@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/logger"
+	"horizonx/internal/domain"
+	"horizonx/internal/logger"
 )
 
 type Hub struct {

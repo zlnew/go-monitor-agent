@@ -5,7 +5,7 @@ import (
 	"context"
 	"time"
 
-	"horizonx-server/internal/domain"
+	"horizonx/internal/domain"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"

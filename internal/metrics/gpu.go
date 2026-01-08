@@ -1,8 +1,8 @@
 package metrics
 
 import (
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/system"
+	"horizonx/internal/domain"
+	"horizonx/internal/system"
 )
 
 func calculateGPUMetric(card string, vendor string, m *system.GPUMetrics) domain.GPUMetric {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"horizonx-server/internal/config"
-	"horizonx-server/internal/logger"
+	"horizonx/internal/config"
+	"horizonx/internal/logger"
 )
 
 type DailySchedule struct {

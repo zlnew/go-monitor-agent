@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"horizonx-server/internal/system"
+	"horizonx/internal/system"
 )
 
 func calculateCPUUsage(state *CPUUsageState, curr map[string]system.CPUStat) (coreAvg float64, perCore []float64) {

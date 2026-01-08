@@ -4,8 +4,8 @@ package server
 import (
 	"context"
 
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/event"
+	"horizonx/internal/domain"
+	"horizonx/internal/event"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"

@@ -5,8 +5,8 @@ import (
 	"context"
 	"time"
 
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/logger"
+	"horizonx/internal/domain"
+	"horizonx/internal/logger"
 )
 
 type Manager struct {

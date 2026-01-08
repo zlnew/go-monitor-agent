@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"horizonx-server/internal/config"
+	"horizonx/internal/config"
 )
 
 func CORS(cfg *config.Config) Middleware {

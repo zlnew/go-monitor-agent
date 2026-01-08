@@ -8,11 +8,11 @@ import (
 	"os"
 	"time"
 
-	"horizonx-server/internal/agent/command"
-	"horizonx-server/internal/agent/docker"
-	"horizonx-server/internal/agent/git"
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/logger"
+	"horizonx/internal/agent/command"
+	"horizonx/internal/agent/docker"
+	"horizonx/internal/agent/git"
+	"horizonx/internal/domain"
+	"horizonx/internal/logger"
 )
 
 type EmitHandler = func(event any)

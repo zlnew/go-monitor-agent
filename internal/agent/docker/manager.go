@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"horizonx-server/internal/agent/command"
+	"horizonx/internal/agent/command"
 )
 
 type Manager struct {

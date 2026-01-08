@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"horizonx-server/internal/domain"
+	"horizonx/internal/domain"
 )
 
 type CPUStat struct {

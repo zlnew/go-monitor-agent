@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"horizonx-server/internal/config"
-	"horizonx-server/internal/domain"
+	"horizonx/internal/config"
+	"horizonx/internal/domain"
 )
 
 type Client struct {

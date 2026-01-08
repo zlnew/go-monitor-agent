@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"horizonx-server/internal/domain"
+	"horizonx/internal/domain"
 )
 
 type EMA struct {

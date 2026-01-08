@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/logger"
+	"horizonx/internal/domain"
+	"horizonx/internal/logger"
 
 	"github.com/gorilla/websocket"
 )

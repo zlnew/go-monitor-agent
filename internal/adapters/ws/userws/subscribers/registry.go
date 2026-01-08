@@ -1,7 +1,7 @@
 package subscribers
 
 import (
-	"horizonx-server/internal/adapters/ws/userws"
+	"horizonx/internal/adapters/ws/userws"
 )
 
 func Register(bus EventBus, hub *userws.Hub) {

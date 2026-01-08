@@ -4,11 +4,11 @@ package http
 import (
 	"net/http"
 
-	"horizonx-server/internal/adapters/http/middleware"
-	"horizonx-server/internal/adapters/ws/agentws"
-	"horizonx-server/internal/adapters/ws/userws"
-	"horizonx-server/internal/config"
-	"horizonx-server/internal/domain"
+	"horizonx/internal/adapters/http/middleware"
+	"horizonx/internal/adapters/ws/agentws"
+	"horizonx/internal/adapters/ws/userws"
+	"horizonx/internal/config"
+	"horizonx/internal/domain"
 )
 
 type RouterDeps struct {

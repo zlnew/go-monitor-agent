@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"horizonx-server/internal/domain"
+	"horizonx/internal/domain"
 )
 
 const (

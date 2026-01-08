@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"horizonx-server/internal/config"
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/logger"
-	"horizonx-server/internal/system"
+	"horizonx/internal/config"
+	"horizonx/internal/domain"
+	"horizonx/internal/logger"
+	"horizonx/internal/system"
 )
 
 type CPUPowerState struct {

@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/event"
-	"horizonx-server/internal/logger"
+	"horizonx/internal/domain"
+	"horizonx/internal/event"
+	"horizonx/internal/logger"
 
 	"github.com/google/uuid"
 )

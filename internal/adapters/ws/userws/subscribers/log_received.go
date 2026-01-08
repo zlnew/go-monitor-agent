@@ -1,8 +1,8 @@
 package subscribers
 
 import (
-	"horizonx-server/internal/adapters/ws/userws"
-	"horizonx-server/internal/domain"
+	"horizonx/internal/adapters/ws/userws"
+	"horizonx/internal/domain"
 )
 
 type LogReceived struct {

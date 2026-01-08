@@ -3,7 +3,7 @@ package agentws
 import (
 	"context"
 
-	"horizonx-server/internal/logger"
+	"horizonx/internal/logger"
 
 	"github.com/google/uuid"
 )

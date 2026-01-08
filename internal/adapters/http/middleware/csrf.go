@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"horizonx-server/internal/config"
+	"horizonx/internal/config"
 )
 
 func CSRF(cfg *config.Config) func(http.Handler) http.Handler {

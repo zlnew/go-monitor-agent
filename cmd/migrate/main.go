@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	"horizonx-server/internal/adapters/postgres"
+	"horizonx/internal/adapters/postgres"
 
 	"github.com/golang-migrate/migrate/v4"
 	pgMigrate "github.com/golang-migrate/migrate/v4/database/postgres"

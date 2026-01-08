@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"horizonx-server/internal/domain"
+	"horizonx/internal/domain"
 
 	"github.com/google/uuid"
 )

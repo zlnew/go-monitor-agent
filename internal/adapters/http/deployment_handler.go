@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"horizonx-server/internal/domain"
+	"horizonx/internal/domain"
 )
 
 type DeploymentHandler struct {

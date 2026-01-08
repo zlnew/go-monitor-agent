@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"horizonx-server/internal/domain"
+	"horizonx/internal/domain"
 )
 
 type LogHandler struct {

@@ -3,7 +3,7 @@ package metrics
 import (
 	"time"
 
-	"horizonx-server/internal/system"
+	"horizonx/internal/system"
 )
 
 func (c *Collector) calculateDiskDelta(name string, curr system.DiskIOStats, now time.Time) (readMBps, writeMBps, utilPct float64) {

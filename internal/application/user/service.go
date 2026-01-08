@@ -4,7 +4,7 @@ package user
 import (
 	"context"
 
-	"horizonx-server/internal/domain"
+	"horizonx/internal/domain"
 
 	"golang.org/x/crypto/bcrypt"
 )

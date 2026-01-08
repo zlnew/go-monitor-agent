@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"horizonx-server/internal/logger"
+	"horizonx/internal/logger"
 )
 
 type SystemReader struct {

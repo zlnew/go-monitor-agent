@@ -5,7 +5,7 @@
 HorizonX serves as the command center for your infrastructure. It allows you to monitor the real-time health of your distributed servers and deploy applications seamlessly using GitOps principles. Whether you have one server or a hundred, HorizonX brings them all into a single, unified view.
 
 > **Note**: This repository contains the **Backend Server** code.  
-> The **Frontend Dashboard** can be found here: [https://github.com/zlnew/horizonx](https://github.com/zlnew/horizonx)
+> The **Frontend Dashboard** can be found here: [https://github.com/zlnew/horizonx](https://github.com/zlnew/horizonx-dashboard)
 
 ---
 
@@ -66,7 +66,7 @@ Use these steps to run the project locally for testing or development.
 
 ```bash
 git clone <repo-url>
-cd horizonx-server
+cd horizonx
 
 # Configure environment
 cp .env.example .env

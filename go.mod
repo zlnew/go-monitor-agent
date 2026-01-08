@@ -1,4 +1,4 @@
-module horizonx-server
+module horizonx
 
 go 1.25.4
 

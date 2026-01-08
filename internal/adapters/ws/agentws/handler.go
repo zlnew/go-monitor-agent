@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/logger"
+	"horizonx/internal/domain"
+	"horizonx/internal/logger"
 
 	"github.com/gorilla/websocket"
 )

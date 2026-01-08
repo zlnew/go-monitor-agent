@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"horizonx-server/internal/agent/command"
+	"horizonx/internal/agent/command"
 )
 
 type Manager struct {

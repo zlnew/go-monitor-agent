@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"horizonx-server/internal/agent/executor"
-	"horizonx-server/internal/config"
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/event"
-	"horizonx-server/internal/logger"
+	"horizonx/internal/agent/executor"
+	"horizonx/internal/config"
+	"horizonx/internal/domain"
+	"horizonx/internal/event"
+	"horizonx/internal/logger"
 )
 
 type JobWorker struct {

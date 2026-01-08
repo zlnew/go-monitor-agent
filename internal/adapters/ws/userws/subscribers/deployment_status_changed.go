@@ -3,8 +3,8 @@ package subscribers
 import (
 	"fmt"
 
-	"horizonx-server/internal/adapters/ws/userws"
-	"horizonx-server/internal/domain"
+	"horizonx/internal/adapters/ws/userws"
+	"horizonx/internal/domain"
 )
 
 type DeploymentStatusChanged struct {

@@ -4,8 +4,8 @@ package deployment
 import (
 	"context"
 
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/event"
+	"horizonx/internal/domain"
+	"horizonx/internal/event"
 )
 
 type Service struct {

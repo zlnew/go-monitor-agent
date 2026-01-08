@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"horizonx-server/internal/adapters/http/middleware"
-	"horizonx-server/internal/domain"
+	"horizonx/internal/adapters/http/middleware"
+	"horizonx/internal/domain"
 
 	"github.com/google/uuid"
 )

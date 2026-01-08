@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"horizonx-server/internal/config"
+	"horizonx/internal/config"
 )
 
 type Logger interface {

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"horizonx-server/internal/logger"
+	"horizonx/internal/logger"
 )
 
 func InitDB(connString string, log logger.Logger) (*pgxpool.Pool, error) {

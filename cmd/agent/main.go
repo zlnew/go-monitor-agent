@@ -9,10 +9,10 @@ import (
 	"github.com/joho/godotenv"
 	"golang.org/x/sync/errgroup"
 
-	"horizonx-server/internal/agent"
-	"horizonx-server/internal/config"
-	"horizonx-server/internal/logger"
-	"horizonx-server/internal/metrics"
+	"horizonx/internal/agent"
+	"horizonx/internal/config"
+	"horizonx/internal/logger"
+	"horizonx/internal/metrics"
 )
 
 func main() {

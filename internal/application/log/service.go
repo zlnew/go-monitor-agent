@@ -4,8 +4,8 @@ package log
 import (
 	"context"
 
-	"horizonx-server/internal/domain"
-	"horizonx-server/internal/event"
+	"horizonx/internal/domain"
+	"horizonx/internal/event"
 )
 
 type LogService struct {
