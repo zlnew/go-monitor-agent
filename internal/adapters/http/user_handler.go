@@ -118,19 +118,19 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) Destroy(w http.ResponseWriter, r *http.Request) {
+	userCtx, ok := middleware.GetUser(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	userID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		JSONError(w, http.StatusInternalServerError, "invalid user id")
 		return
 	}
 
-	currentUserID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		JSONError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	if userID == currentUserID {
+	if userID == userCtx.ID {
 		JSONError(w, http.StatusBadRequest, "you cannot delete yourself")
 		return
 	}

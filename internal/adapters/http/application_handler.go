@@ -167,19 +167,19 @@ func (h *ApplicationHandler) Destroy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ApplicationHandler) Deploy(w http.ResponseWriter, r *http.Request) {
+	userCtx, ok := middleware.GetUser(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	appID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		JSONError(w, http.StatusBadRequest, "invalid application id")
 		return
 	}
 
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		JSONError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	deployment, err := h.svc.Deploy(r.Context(), appID, userID)
+	deployment, err := h.svc.Deploy(r.Context(), appID, userCtx.ID)
 	if err != nil {
 		if errors.Is(err, domain.ErrApplicationNotFound) {
 			JSONError(w, http.StatusNotFound, "application not found")

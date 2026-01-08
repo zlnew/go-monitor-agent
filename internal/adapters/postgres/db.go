@@ -7,10 +7,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"horizonx/internal/logger"
 )
 
-func InitDB(connString string, log logger.Logger) (*pgxpool.Pool, error) {
+func InitDB(connString string) (*pgxpool.Pool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -32,8 +31,6 @@ func InitDB(connString string, log logger.Logger) (*pgxpool.Pool, error) {
 	if err := pool.Ping(ctx); err != nil {
 		return nil, fmt.Errorf("postgres: database not responding (ping fail): %w", err)
 	}
-
-	log.Info("postgres: connected", "max_conns", cfg.MaxConns)
 
 	return pool, nil
 }

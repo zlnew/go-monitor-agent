@@ -1,68 +1,77 @@
 package main
 
 import (
-	"database/sql"
-	"flag"
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"time"
+
+	"horizonx/internal/adapters/postgres"
+	"horizonx/internal/application/role"
+	"horizonx/internal/application/user"
+	"horizonx/internal/domain"
 
 	"github.com/joho/godotenv"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		fmt.Println("Warning: .env file not found")
+		fmt.Println("WARNING! .env file not found")
 	}
 
-	defaultDSN := os.Getenv("DATABASE_URL")
-	dsn := flag.String("dsn", defaultDSN, "database url")
-	flag.Parse()
+	dbURL := os.Getenv("DATABASE_URL")
 
-	if *dsn == "" {
-		log.Fatal("DSN required via flag -dsn or DATABASE_URL env")
-	}
-
-	db, err := sql.Open("pgx", *dsn)
+	dbPool, err := postgres.InitDB(dbURL)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to init DB: %v", err)
 	}
-	defer db.Close()
+	defer dbPool.Close()
 
-	if err := db.Ping(); err != nil {
-		log.Fatal("Cannot ping DB:", err)
-	}
+	roleRepo := postgres.NewRoleRepository(dbPool)
+	roleSvc := role.NewService(roleRepo)
 
-	seedAdmin(db)
+	userRepo := postgres.NewUserRepository(dbPool)
+	userSvc := user.NewService(userRepo)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	seedRolePermissions(ctx, roleSvc)
+	seedAdmin(ctx, userSvc)
 }
 
-func seedAdmin(db *sql.DB) {
-	email := "admin@horizonx.local"
-	password := "password"
-
-	if envEmail := os.Getenv("DB_ADMIN_EMAIL"); envEmail != "" {
-		email = envEmail
+func seedRolePermissions(ctx context.Context, role domain.RoleService) {
+	if err := role.SyncPermissions(ctx); err != nil {
+		log.Printf("[x] failed to seed roles and permissions: %v", err)
+		return
 	}
 
-	if envPass := os.Getenv("DB_ADMIN_PASSWORD"); envPass != "" {
-		password = envPass
+	log.Println("[v] Roles and Permissions seeded")
+}
+
+func seedAdmin(ctx context.Context, user domain.UserService) {
+	email := os.Getenv("DB_ADMIN_EMAIL")
+	if email == "" {
+		email = "admin@horizonx.local"
 	}
 
-	hashed, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-
-	query := `
-		INSERT INTO users (name, email, password, role_id) 
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (email) DO UPDATE SET password = excluded.password;
-	`
-
-	_, err := db.Exec(query, "Admin", email, string(hashed), 1)
-	if err != nil {
-		log.Fatalf("Failed to seed admin: %v", err)
+	password := os.Getenv("DB_ADMIN_PASSWORD")
+	if password == "" {
+		password = "password"
 	}
 
-	fmt.Printf("✅ User Seeded!\n   User: %s\n   Pass: %s\n", email, password)
+	req := domain.UserSaveRequest{
+		Name:     "Admin",
+		Email:    email,
+		Password: password,
+		RoleID:   1,
+	}
+
+	if err := user.Create(ctx, req); err != nil {
+		log.Printf("[x] failed to seed admin: %v", err)
+		return
+	}
+
+	log.Printf("[v] Admin seeded | User: %s | Pass: %s", email, password)
 }

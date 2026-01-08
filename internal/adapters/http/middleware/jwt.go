@@ -3,15 +3,14 @@ package middleware
 import (
 	"context"
 	"net/http"
-	"strconv"
 
 	"horizonx/internal/config"
 	"horizonx/internal/domain"
 )
 
-type contextKey string
+type userContextKeyType struct{}
 
-const UserIDKey contextKey = "user_id"
+var userContextKey = userContextKeyType{}
 
 func JWT(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -28,30 +27,22 @@ func JWT(cfg *config.Config) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), UserIDKey, claims["sub"])
+			userCtx := domain.UserContext{
+				ID:   claims.UserID,
+				Role: claims.Role,
+			}
+
+			ctx := context.WithValue(r.Context(), userContextKey, userCtx)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-func GetUserID(ctx context.Context) (int64, bool) {
-	val := ctx.Value(UserIDKey)
-	if val == nil {
-		return 0, false
+func GetUser(ctx context.Context) (domain.UserContext, bool) {
+	user, ok := ctx.Value(userContextKey).(domain.UserContext)
+	if !ok {
+		return domain.UserContext{}, false
 	}
 
-	switch v := val.(type) {
-	case string:
-		id, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return 0, false
-		}
-		return id, true
-	case int64:
-		return v, true
-	case float64:
-		return int64(v), true
-	default:
-		return 0, false
-	}
+	return user, true
 }

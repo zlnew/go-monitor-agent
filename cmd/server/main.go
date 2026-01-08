@@ -18,6 +18,7 @@ import (
 	"horizonx/internal/application/job"
 	logSvc "horizonx/internal/application/log"
 	"horizonx/internal/application/metrics"
+	"horizonx/internal/application/role"
 	"horizonx/internal/application/server"
 	"horizonx/internal/application/user"
 	"horizonx/internal/config"
@@ -37,9 +38,11 @@ func main() {
 		panic("FATAL: JWT_SECRET is mandatory for Server!")
 	}
 
-	dbPool, err := postgres.InitDB(cfg.DatabaseURL, log)
+	dbPool, err := postgres.InitDB(cfg.DatabaseURL)
 	if err != nil {
 		log.Error("failed to init DB", "error", err)
+	} else {
+		log.Info("postgres connected")
 	}
 	defer dbPool.Close()
 
@@ -48,6 +51,7 @@ func main() {
 	// Repositories
 	logRepo := postgres.NewLogRepository(dbPool)
 	serverRepo := postgres.NewServerRepository(dbPool)
+	roleRepo := postgres.NewRoleRepository(dbPool)
 	userRepo := postgres.NewUserRepository(dbPool)
 	jobRepo := postgres.NewJobRepository(dbPool)
 	metricsRepo := postgres.NewMetricsRepository(dbPool)
@@ -58,6 +62,7 @@ func main() {
 	logService := logSvc.NewService(logRepo, bus)
 	serverService := server.NewService(serverRepo, bus)
 	authService := auth.NewService(userRepo, cfg.JWTSecret, cfg.JWTExpiry)
+	roleService := role.NewService(roleRepo)
 	userService := user.NewService(userRepo)
 	jobService := job.NewService(jobRepo, logService, bus)
 	metricsService := metrics.NewService(metricsRepo, bus, log)
@@ -107,6 +112,7 @@ func main() {
 		Application: applicationHandler,
 		Deployment:  deploymentHandler,
 
+		RoleService:   roleService,
 		ServerService: serverService,
 	})
 

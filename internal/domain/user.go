@@ -26,19 +26,14 @@ type User struct {
 	DeletedAt   *time.Time   `json:"-"`
 }
 
+type UserContext struct {
+	ID   int64
+	Role RoleConst
+}
+
 type UserListOptions struct {
 	ListOptions
 	Roles []string `json:"roles"`
-}
-
-type Role struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
-}
-
-type Permission struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
 }
 
 type UserSaveRequest struct {

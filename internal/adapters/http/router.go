@@ -24,6 +24,7 @@ type RouterDeps struct {
 	Application *ApplicationHandler
 	Deployment  *DeploymentHandler
 
+	RoleService   domain.RoleService
 	ServerService domain.ServerService
 }
 

@@ -3,6 +3,7 @@ package auth
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"horizonx/internal/domain"
@@ -36,13 +37,18 @@ func (s *service) Login(ctx context.Context, req domain.LoginRequest) (*domain.A
 		return nil, domain.ErrInvalidCredentials
 	}
 
-	claims := jwt.MapClaims{
-		"sub":   user.ID,
-		"email": user.Email,
-		"exp":   time.Now().Add(s.jwtExpiry).Unix(),
+	claims := domain.AuthClaims{
+		UserID: user.ID,
+		Role:   user.Role.Name,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.jwtExpiry)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Subject:   strconv.FormatInt(user.ID, 10),
+		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
 	tokenString, err := token.SignedString([]byte(s.jwtSecret))
 	if err != nil {
 		return nil, err
