@@ -6,27 +6,37 @@ import (
 	"strconv"
 	"time"
 
+	"horizonx/internal/adapters/http/middleware"
 	"horizonx/internal/domain"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type service struct {
+type Service struct {
 	repo      domain.UserRepository
 	jwtSecret string
 	jwtExpiry time.Duration
 }
 
 func NewService(repo domain.UserRepository, jwtSecret string, jwtExpiry time.Duration) domain.AuthService {
-	return &service{
+	return &Service{
 		repo:      repo,
 		jwtSecret: jwtSecret,
 		jwtExpiry: jwtExpiry,
 	}
 }
 
-func (s *service) Login(ctx context.Context, req domain.LoginRequest) (*domain.AuthResponse, error) {
+func (s *Service) GetUser(ctx context.Context) (*domain.User, error) {
+	userCtx, ok := middleware.GetUser(ctx)
+	if !ok {
+		return nil, domain.ErrUnauthorized
+	}
+
+	return s.repo.GetByID(ctx, userCtx.ID)
+}
+
+func (s *Service) Login(ctx context.Context, req domain.LoginRequest) (*domain.AuthResponse, error) {
 	user, err := s.repo.GetByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, domain.ErrInvalidCredentials

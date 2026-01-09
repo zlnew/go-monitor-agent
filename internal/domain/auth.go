@@ -27,6 +27,7 @@ type AuthResponse struct {
 }
 
 type AuthService interface {
+	GetUser(ctx context.Context) (*User, error)
 	Login(ctx context.Context, req LoginRequest) (*AuthResponse, error)
 }
 

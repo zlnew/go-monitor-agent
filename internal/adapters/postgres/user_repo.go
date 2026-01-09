@@ -128,35 +128,77 @@ func (r *UserRepository) GetByID(ctx context.Context, userID int64) (*domain.Use
 			u.created_at,
 			u.updated_at,
 			r.id,
-			r.name
+			r.name,
+			p.id,
+			p.name
 		FROM users u
 		LEFT JOIN roles r ON u.role_id = r.id
-		WHERE u.id = $1 AND u.deleted_at IS NULL
+		LEFT JOIN role_has_permissions rp ON rp.role_id = r.id
+		LEFT JOIN permissions p ON p.id = rp.permission_id
+		WHERE u.id = $1
+		AND u.deleted_at IS NULL
 	`
 
-	row := r.db.QueryRow(ctx, query, userID)
+	rows, err := r.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-	var user domain.User
-	var role domain.Role
+	var (
+		user        domain.User
+		role        domain.Role
+		permissions = make(map[int64]domain.Permission)
+		isFirst     = true
+	)
 
-	if err := row.Scan(
-		&user.ID,
-		&user.Name,
-		&user.Email,
-		&user.Password,
-		&user.RoleID,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-		&role.ID,
-		&role.Name,
-	); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain.ErrUserNotFound
+	for rows.Next() {
+		var pID *int64
+		var pName *domain.PermissionConst
+
+		if err := rows.Scan(
+			&user.ID,
+			&user.Name,
+			&user.Email,
+			&user.Password,
+			&user.RoleID,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+
+			&role.ID,
+			&role.Name,
+
+			&pID,
+			&pName,
+		); err != nil {
+			return nil, err
 		}
+
+		if isFirst {
+			user.Role = &role
+			isFirst = false
+		}
+
+		if pID != nil {
+			permissions[*pID] = domain.Permission{
+				ID:   *pID,
+				Name: *pName,
+			}
+		}
+	}
+
+	if isFirst {
+		return nil, domain.ErrUserNotFound
+	}
+
+	for _, p := range permissions {
+		user.Permissions = append(user.Permissions, p)
+	}
+
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	user.Role = &role
 	return &user, nil
 }
 
@@ -171,35 +213,77 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 			u.created_at,
 			u.updated_at,
 			r.id,
-			r.name
+			r.name,
+			p.id,
+			p.name
 		FROM users u
 		LEFT JOIN roles r ON u.role_id = r.id
-		WHERE u.email = $1 AND u.deleted_at IS NULL
+		LEFT JOIN role_has_permissions rp ON rp.role_id = r.id
+		LEFT JOIN permissions p ON p.id = rp.permission_id
+		WHERE u.email = $1
+		AND u.deleted_at IS NULL
 	`
 
-	row := r.db.QueryRow(ctx, query, email)
+	rows, err := r.db.Query(ctx, query, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-	var user domain.User
-	var role domain.Role
+	var (
+		user        domain.User
+		role        domain.Role
+		permissions = make(map[int64]domain.Permission)
+		isFirst     = true
+	)
 
-	if err := row.Scan(
-		&user.ID,
-		&user.Name,
-		&user.Email,
-		&user.Password,
-		&user.RoleID,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-		&role.ID,
-		&role.Name,
-	); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain.ErrUserNotFound
+	for rows.Next() {
+		var pID *int64
+		var pName *domain.PermissionConst
+
+		if err := rows.Scan(
+			&user.ID,
+			&user.Name,
+			&user.Email,
+			&user.Password,
+			&user.RoleID,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+
+			&role.ID,
+			&role.Name,
+
+			&pID,
+			&pName,
+		); err != nil {
+			return nil, err
 		}
+
+		if isFirst {
+			user.Role = &role
+			isFirst = false
+		}
+
+		if pID != nil {
+			permissions[*pID] = domain.Permission{
+				ID:   *pID,
+				Name: *pName,
+			}
+		}
+	}
+
+	if isFirst {
+		return nil, domain.ErrUserNotFound
+	}
+
+	for _, p := range permissions {
+		user.Permissions = append(user.Permissions, p)
+	}
+
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	user.Role = &role
 	return &user, nil
 }
 

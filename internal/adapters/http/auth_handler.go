@@ -22,6 +22,24 @@ func NewAuthHandler(svc domain.AuthService, cfg *config.Config) *AuthHandler {
 	}
 }
 
+func (h *AuthHandler) User(w http.ResponseWriter, r *http.Request) {
+	user, err := h.svc.GetUser(r.Context())
+	if err != nil {
+		if errors.Is(err, domain.ErrUnauthorized) {
+			JSONError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		JSONError(w, http.StatusInternalServerError, "failed to get user")
+		return
+	}
+
+	JSONSuccess(w, http.StatusOK, APIResponse{
+		Message: "OK",
+		Data:    user,
+	})
+}
+
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req domain.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

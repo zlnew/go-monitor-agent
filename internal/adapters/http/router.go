@@ -62,7 +62,8 @@ func NewRouter(cfg *config.Config, deps *RouterDeps) http.Handler {
 	mux.HandleFunc("GET /ws/agent", deps.WsAgent.Serve)
 
 	// AUTH
-	mux.HandleFunc("POST /auth/login", deps.Auth.Login)
+	mux.Handle("GET /auth/user", userStack.ThenFunc(deps.Auth.User))
+	mux.Handle("POST /auth/login", http.HandlerFunc(deps.Auth.Login))
 	mux.Handle("POST /auth/logout", userStack.ThenFunc(deps.Auth.Logout))
 
 	// AGENT ENDPOINTS
