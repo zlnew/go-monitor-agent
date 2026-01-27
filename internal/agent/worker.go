@@ -26,7 +26,7 @@ func NewJobWorker(cfg *config.Config, log logger.Logger, metrics func() *domain.
 		cfg:      cfg,
 		log:      log,
 		client:   NewClient(cfg),
-		executor: executor.NewExecutor("/var/horizonx/apps", metrics, log),
+		executor: executor.NewExecutor("/var/lib/horizonx/apps", metrics, log),
 	}
 }
 
