@@ -12,6 +12,7 @@ import (
 	"horizonx/internal/adapters/http/response"
 	"horizonx/internal/adapters/http/validator"
 	"horizonx/internal/adapters/postgres"
+	"horizonx/internal/adapters/redis"
 	"horizonx/internal/adapters/ws/agentws"
 	"horizonx/internal/adapters/ws/userws"
 	"horizonx/internal/adapters/ws/userws/subscribers"
@@ -32,7 +33,8 @@ import (
 )
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx := context.Background()
+	runtimeCtx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	cfg := config.Load()
@@ -42,13 +44,26 @@ func main() {
 		panic("FATAL: JWT_SECRET is mandatory for Server!")
 	}
 
-	dbPool, err := postgres.InitDB(cfg.DatabaseURL)
+	dbPool, err := postgres.Init(cfg.DatabaseURL)
 	if err != nil {
-		log.Error("failed to init DB", "error", err)
+		log.Error("failed to init postgres", "error", err)
 	} else {
 		log.Info("postgres connected")
 	}
 	defer dbPool.Close()
+
+	redisClient, err := redis.Init(ctx, &redis.ClientOptions{
+		Address:  cfg.RedisAddress,
+		Username: cfg.RedisUsername,
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
+	})
+	if err != nil {
+		log.Error("failed to init redis", "error", err)
+	} else {
+		log.Info("redis connected")
+	}
+	defer redisClient.Close()
 
 	bus := event.New()
 
@@ -97,10 +112,10 @@ func main() {
 	applicationHandler := http.NewApplicationHandler(applicationService, jsonDecoder, jsonWriter, validator)
 
 	// WebSocket Handlers
-	wsUserhub := userws.NewHub(ctx, log)
+	wsUserhub := userws.NewHub(runtimeCtx, log)
 	wsUserHandler := userws.NewHandler(wsUserhub, log, cfg.JWTSecret, cfg.AllowedOrigins)
 
-	wsAgentRouter := agentws.NewRouter(ctx, log)
+	wsAgentRouter := agentws.NewRouter(runtimeCtx, log)
 	wsAgentHandler := agentws.NewHandler(wsAgentRouter, log, serverService)
 
 	go wsUserhub.Run()
@@ -135,7 +150,7 @@ func main() {
 		Metrics:     metricsService,
 		Application: applicationService,
 	})
-	wManager.Start(ctx)
+	wManager.Start(runtimeCtx)
 
 	// HTTP Server
 	srv := http.NewServer(router, cfg.Address)
@@ -148,7 +163,7 @@ func main() {
 	}()
 
 	select {
-	case <-ctx.Done():
+	case <-runtimeCtx.Done():
 		wsUserhub.Stop()
 		wsAgentRouter.Stop()
 

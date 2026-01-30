@@ -3,6 +3,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,11 @@ type Config struct {
 	AgentTargetWsURL    string
 	AgentServerAPIToken string
 	AgentServerID       uuid.UUID
+
+	RedisAddress  string
+	RedisUsername string
+	RedisPassword string
+	RedisDB       int
 }
 
 func Load() *Config {
@@ -80,6 +86,17 @@ func Load() *Config {
 		}
 	}
 
+	// REDIS
+	redisAddress := getEnv("REDIS_ADDR", "localhost:6379")
+	redisUsername := getEnv("REDIS_USERNAME", "")
+	redisPassword := getEnv("REDIS_PASS", "")
+	redisDB := 0
+	if raw := os.Getenv("REDIS_DB"); raw != "" {
+		if value, err := strconv.Atoi(raw); err == nil {
+			redisDB = value
+		}
+	}
+
 	return &Config{
 		LogLevel:  logLevel,
 		LogFormat: logFormat,
@@ -95,6 +112,11 @@ func Load() *Config {
 		AgentTargetWsURL:    agentTargetWsURL,
 		AgentServerAPIToken: agentServerAPIToken,
 		AgentServerID:       agentServerID,
+
+		RedisAddress:  redisAddress,
+		RedisUsername: redisUsername,
+		RedisPassword: redisPassword,
+		RedisDB:       redisDB,
 	}
 }
 

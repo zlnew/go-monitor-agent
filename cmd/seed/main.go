@@ -22,9 +22,9 @@ func main() {
 
 	dbURL := os.Getenv("DATABASE_URL")
 
-	dbPool, err := postgres.InitDB(dbURL)
+	dbPool, err := postgres.Init(dbURL)
 	if err != nil {
-		log.Fatalf("failed to init DB: %v", err)
+		log.Fatalf("failed to init postgres: %v", err)
 	}
 	defer dbPool.Close()
 

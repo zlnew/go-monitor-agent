@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"horizonx/internal/adapters/redis"
 	"horizonx/internal/config"
 	"horizonx/internal/domain"
 	"horizonx/internal/logger"
@@ -37,6 +38,8 @@ type NetState struct {
 type Collector struct {
 	cfg *config.Config
 	log logger.Logger
+
+	registry *redis.MetricsRegistry
 
 	buffer   []domain.Metrics
 	bufferMu sync.Mutex
@@ -75,10 +78,12 @@ type Collector struct {
 	iface string
 }
 
-func NewCollector(cfg *config.Config, log logger.Logger) *Collector {
+func NewCollector(cfg *config.Config, log logger.Logger, registry *redis.MetricsRegistry) *Collector {
 	return &Collector{
 		cfg: cfg,
 		log: log,
+
+		registry: registry,
 
 		buffer:     make([]domain.Metrics, 0, 10),
 		maxSamples: 10,
@@ -111,6 +116,9 @@ func NewCollector(cfg *config.Config, log logger.Logger) *Collector {
 }
 
 func (c *Collector) Start(ctx context.Context) error {
+	runtimeCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
 
@@ -119,27 +127,53 @@ func (c *Collector) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			c.log.Info("metrics collector stropping...")
+			c.stop(runtimeCtx)
 			return ctx.Err()
 		case <-ticker.C:
-			c.collect()
+			c.collect(runtimeCtx)
 		}
 	}
 }
 
-func (c *Collector) Latest() *domain.Metrics {
+func (c *Collector) stop(ctx context.Context) {
+	c.log.Info("metrics collector stopping...")
+
 	c.bufferMu.Lock()
 	defer c.bufferMu.Unlock()
 
 	if len(c.buffer) == 0 {
+		return
+	}
+
+	c.log.Info("flushing buffered metrics to registry")
+
+	for _, m := range c.buffer {
+		if _, err := c.registry.Append(ctx, &m); err != nil {
+			c.log.Error("failed to flush metrics", "err", err)
+		}
+	}
+
+	c.buffer = nil
+}
+
+func (c *Collector) Latest(ctx context.Context) *domain.Metrics {
+	c.bufferMu.Lock()
+	if len(c.buffer) > 0 {
+		m := c.buffer[len(c.buffer)-1]
+		c.bufferMu.Unlock()
+		return &m
+	}
+	c.bufferMu.Unlock()
+
+	m, _, err := c.registry.GetLatest(ctx)
+	if err != nil || m == nil {
 		return &domain.Metrics{}
 	}
 
-	m := c.buffer[len(c.buffer)-1]
-	return &m
+	return m
 }
 
-func (c *Collector) collect() {
+func (c *Collector) collect(ctx context.Context) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 
@@ -164,6 +198,7 @@ func (c *Collector) collect() {
 	}
 
 	c.buffer = append(c.buffer, metrics)
+	c.registry.Append(ctx, &metrics)
 }
 
 func (c *Collector) getCPUMetric() domain.CPUMetric {

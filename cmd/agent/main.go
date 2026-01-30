@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os/signal"
 	"syscall"
@@ -9,6 +10,7 @@ import (
 	"github.com/joho/godotenv"
 	"golang.org/x/sync/errgroup"
 
+	"horizonx/internal/adapters/redis"
 	"horizonx/internal/agent"
 	"horizonx/internal/config"
 	"horizonx/internal/logger"
@@ -33,12 +35,27 @@ func main() {
 
 	appLog.Info("horizonx agent: starting...", "server_id", cfg.AgentServerID)
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx := context.Background()
+	runtimeCtx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	redisClient, err := redis.Init(ctx, &redis.ClientOptions{
+		Address:  cfg.RedisAddress,
+		Username: cfg.RedisUsername,
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
+	})
+	if err != nil {
+		appLog.Error("failed to init redis", "error", err)
+	} else {
+		appLog.Info("redis connected")
+	}
+	defer redisClient.Close()
 
 	// Initialize components
 	ws := agent.NewAgent(cfg, appLog)
-	mCollector := metrics.NewCollector(cfg, appLog)
+	mRegistry := redis.NewMetricsRegistry(redisClient, fmt.Sprintf("metrics:agent:%s:stream", cfg.AgentServerID.String()))
+	mCollector := metrics.NewCollector(cfg, appLog, mRegistry)
 
 	// Initialize job worker
 	jWorker := agent.NewJobWorker(cfg, appLog, mCollector.Latest)
@@ -47,7 +64,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	g, gCtx := errgroup.WithContext(ctx)
+	g, gCtx := errgroup.WithContext(runtimeCtx)
 
 	// WebSocket connection
 	g.Go(func() error {

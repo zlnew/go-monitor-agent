@@ -18,14 +18,14 @@ import (
 type EmitHandler = func(event any)
 
 type Executor struct {
-	metrics func() *domain.Metrics
+	metrics func(ctx context.Context) *domain.Metrics
 	docker  *docker.Manager
 	git     *git.Manager
 
 	log logger.Logger
 }
 
-func NewExecutor(workDir string, metrics func() *domain.Metrics, log logger.Logger) *Executor {
+func NewExecutor(workDir string, metrics func(ctx context.Context) *domain.Metrics, log logger.Logger) *Executor {
 	return &Executor{
 		docker:  docker.NewManager(workDir),
 		git:     git.NewManager(workDir),
@@ -56,7 +56,7 @@ func (e *Executor) Execute(ctx context.Context, job *domain.Job, emit EmitHandle
 
 	switch job.Type {
 	case domain.JobTypeMetricsCollect:
-		emit(e.metrics())
+		emit(e.metrics(ctx))
 		return nil
 	case domain.JobTypeAppHealthCheck:
 		return e.checkAppHealths(ctx, job, emit)
